@@ -8,6 +8,9 @@ unattended, and every failure mode listed here has actually happened and is quie
 green and produces a file that is unreadable, blank, or unlabelled. A checklist that only describes
 the happy path would pass every one of them.
 
+Section 8 carries working sample plumbing. Its **contract** is normative; the code is a reference
+implementation in one stack, and porting means meeting the contract rather than matching the code.
+
 Why video at all is in [`01-qa-approach.md`](01-qa-approach.md) and
 [`08-definition-of-done.md`](08-definition-of-done.md); this file is the mechanism.
 
@@ -174,7 +177,441 @@ failure the one-command rule is written against.
 
 ---
 
-## 8. How to tell it went wrong
+## 8. The plumbing
+
+### What is normative, and what is an example
+
+**The contract below is the standard. The code after it is one reference implementation.**
+
+The sample is TypeScript against a browser-automation runner that exposes slow motion through launch
+options, video through context options, and a `step` primitive. That is one stack, and its shape
+shows in every line: the module layout, the fixture arrangement, the `evaluate`-into-the-page trick
+for painting an overlay. A different runner, language, or test framework meets the same contract
+differently, and a port that reproduces the code without meeting the contract has copied the
+accidents rather than the design.
+
+An implementation on any stack must:
+
+1. **Read one seam that is unset by default**, so nothing here can affect the authoritative run.
+2. **Force the recording resolution and a 1:1 capture size**, and apply that only while recording.
+3. **Paint an opening card** carrying the scenario id, persona, goal and situation, from the test
+   side rather than as a route in the product, and **remove it before the first assertion**.
+4. **Caption each step with the scenario's own clause text**, taken from the generated module rather
+   than retyped, and caption non-clause setup differently.
+5. **Hold the screen after a step completes**, because the runner's pacing affects actions and the
+   outcome is an assertion.
+6. **Raise the per-test budget only while recording**, and keep the per-action budget below it in
+   both modes.
+7. **Give any separately-created browser context the recording options explicitly**, and put the
+   role in the output path.
+8. **Fail loudly when a journey has no persona**, rather than filming an unidentifiable clip.
+9. **Take the step order from the document**, not from the order the bodies were written in.
+10. **Never let a demonstration affordance fail a journey.** Swallow its errors.
+
+Everything that is not in that list is free: colours, fonts, element ids, module names, where the
+files live, and whether the pieces are four modules or one.
+
+### The reference implementation
+
+Four modules and one config change, in dependency order, generalised from a working suite. Copy them
+if the stack matches, and keep the comments that state a constraint.
+
+### `support/watch-mode.ts` - the seam everything else reads
+
+```ts
+/** Milliseconds paused between browser actions. 0 (the default) disables slow motion. */
+const slowMo = Number(process.env.E2E_SLOWMO ?? 0);
+
+/**
+ * The size a RECORDING runs and is captured at.
+ *
+ * Stated explicitly because the runner's default video size is the viewport scaled to fit inside
+ * 800x800, which turns a 1280x720 viewport into an 800x450 file: far too soft to read.
+ */
+const RECORDING_VIEWPORT = {
+  width: Number(process.env.E2E_VIEWPORT_WIDTH ?? 1920),
+  height: Number(process.env.E2E_VIEWPORT_HEIGHT ?? 1080),
+};
+
+/** Opt in by EXACT value, so an accidentally exported empty variable records nothing. */
+const recording = process.env.E2E_VIDEO === '1';
+
+/**
+ * Spread into a config's `use`. When not recording it carries NO viewport key at all, so a
+ * project's own viewport survives the spread and the everyday run is exactly as it was.
+ */
+export const watchModeUse = recording
+  ? {
+      launchOptions: { slowMo },
+      viewport: RECORDING_VIEWPORT,
+      video: { mode: 'on', size: RECORDING_VIEWPORT }, // 1:1, so nothing is downscaled
+    }
+  : { launchOptions: { slowMo }, video: 'off' };
+
+/** Read from the environment on EVERY call, not captured at load, so a test can drive it. */
+export function isWatchModeActive(): boolean {
+  return Number(process.env.E2E_SLOWMO ?? 0) > 0 || process.env.E2E_VIDEO === '1';
+}
+
+// Raised only while watching or recording. The authoritative run keeps the tight budget, which is
+// the point: a demo affordance must never loosen what the real run is held to.
+export const watchModeTimeout = isWatchModeActive() ? 300_000 : 30_000;
+export const watchModeActionTimeout = isWatchModeActive() ? 60_000 : 15_000;
+
+/**
+ * Options a journey must pass when it creates its OWN browser context, so that context is recorded
+ * and sized like every other one. Without this the file exists, opens, and is blank.
+ *
+ * The role goes in the DIRECTORY name because the runner names video files after an internal page
+ * identifier, so two contexts in one test are otherwise indistinguishable.
+ *
+ * @param outputPath pass `test.info().outputPath` so this module needs no dependency on the runner.
+ */
+export function recordingContextOptions(
+  role: string,
+  outputPath: (...segments: string[]) => string
+): Record<string, unknown> {
+  if (!recording) return {};
+  return {
+    viewport: RECORDING_VIEWPORT,
+    recordVideo: { dir: outputPath(`video-${role}`), size: RECORDING_VIEWPORT },
+  };
+}
+
+/**
+ * Hold the current screen so a person can read it.
+ *
+ * This is the gap slow motion leaves: it pauses between ACTIONS, so a journey that clicks Save and
+ * then asserts spends its pause on the click and none of it on the outcome. The screen a viewer
+ * most wants to read is exactly the one nothing pauses on.
+ */
+export async function watchPause(
+  page: { waitForTimeout(ms: number): Promise<void> },
+  factor = 1
+): Promise<void> {
+  if (!isWatchModeActive()) return;
+  const base = Number(process.env.E2E_STEP_PAUSE ?? 1800);
+  if (base <= 0) return;
+  await page.waitForTimeout(Math.round(base * factor));
+}
+```
+
+### `support/title-card.ts` - the card and the caption
+
+The painters run INSIDE the browser, so they are serialised and may not reference anything from
+module scope. That is why the element id is written out literally in each one and the styles are
+inline: the card frequently renders on a blank page where the application's stylesheet does not
+exist.
+
+```ts
+import type { Page } from '@playwright/test';
+import { isWatchModeActive } from './watch-mode';
+
+export type JourneyBrief = {
+  persona: string;   // who is at the keyboard, in words a viewer would recognise
+  useCase: string;   // what they are trying to get done, as a goal not a test action
+  context: string;   // the situation that makes the goal meaningful
+  scenarioId?: string;
+};
+
+const HOLD_MS = Number(process.env.E2E_CARD_MS ?? 2600);
+
+/** Paint, hold, remove. A no-op unless watch mode is on, so every spec can call it safely. */
+export async function showTitleCard(page: Page, brief: JourneyBrief): Promise<void> {
+  if (!isWatchModeActive()) return;
+  try {
+    await page.evaluate(paintCard, brief);
+    await page.waitForTimeout(HOLD_MS);
+    // Removed explicitly rather than left for the first navigation to discard: a journey that
+    // asserts WITHOUT navigating would otherwise run under a full-screen overlay and miss.
+    await page.evaluate(removeCard);
+  } catch {
+    // Page closed or navigated mid-paint. Decoration must never fail a journey.
+  }
+}
+
+export async function showStepCaption(
+  page: Page,
+  text: string,
+  options: { muted?: boolean } = {}
+): Promise<void> {
+  if (!isWatchModeActive()) return;
+  try {
+    await page.evaluate(paintCaption, { text, muted: options.muted ?? false });
+  } catch {
+    /* never fail a journey */
+  }
+}
+
+export async function clearStepCaption(page: Page): Promise<void> {
+  if (!isWatchModeActive()) return;
+  try {
+    await page.evaluate(removeCaption);
+  } catch {
+    /* as above */
+  }
+}
+
+/** Runs INSIDE the browser. Self-contained by necessity. */
+function paintCard(brief: JourneyBrief): void {
+  document.getElementById('qa-title-card')?.remove();
+
+  const card = document.createElement('div');
+  card.id = 'qa-title-card';
+  card.setAttribute('role', 'presentation');
+  card.style.cssText = [
+    'position:fixed', 'inset:0', 'z-index:2147483647',
+    'display:flex', 'flex-direction:column',
+    'align-items:flex-start', 'justify-content:center',
+    'gap:1.25rem', 'padding:clamp(2rem,7vw,6rem)',
+    'background:linear-gradient(135deg,#0b1220 0%,#152238 55%,#1d2f4d 100%)',
+    'font-family:system-ui,-apple-system,sans-serif', 'color:#f4f7fb',
+    'opacity:0', 'transition:opacity 320ms ease', 'pointer-events:none',
+  ].join(';');
+
+  // The scenario id leads: it is what makes the recording identifiable afterwards.
+  if (brief.scenarioId) {
+    const id = document.createElement('div');
+    id.textContent = brief.scenarioId;
+    id.style.cssText =
+      'font-family:ui-monospace,Menlo,monospace;font-size:clamp(0.8rem,1.4vw,1rem);' +
+      'letter-spacing:0.08em;color:#7dd3fc';
+    card.appendChild(id);
+  }
+
+  const persona = document.createElement('div');
+  persona.textContent = brief.persona;
+  persona.style.cssText =
+    'display:inline-block;padding:0.4rem 0.9rem;border-radius:999px;' +
+    'background:rgba(96,165,250,0.18);border:1px solid rgba(96,165,250,0.45);' +
+    'color:#bfdbfe;font-size:clamp(0.85rem,1.5vw,1.05rem);font-weight:600;' +
+    'letter-spacing:0.04em;text-transform:uppercase';
+
+  const useCase = document.createElement('div');
+  useCase.textContent = brief.useCase;
+  useCase.style.cssText =
+    'font-size:clamp(1.9rem,4.6vw,3.4rem);font-weight:700;line-height:1.15;max-width:20ch';
+
+  const rule = document.createElement('div');
+  rule.style.cssText =
+    'width:5rem;height:4px;border-radius:2px;background:linear-gradient(90deg,#60a5fa,#a78bfa)';
+
+  const context = document.createElement('div');
+  context.textContent = brief.context;
+  context.style.cssText =
+    'font-size:clamp(1rem,1.9vw,1.35rem);line-height:1.55;color:#aebed4;max-width:52ch';
+
+  card.append(persona, useCase, rule, context);
+  document.body.appendChild(card);
+  // Next frame, so the transition has a start value to animate from rather than snapping in.
+  requestAnimationFrame(() => { card.style.opacity = '1'; });
+}
+
+function removeCard(): void {
+  document.getElementById('qa-title-card')?.remove();
+}
+
+/** Runs INSIDE the browser. Same serialisation constraint. */
+function paintCaption(caption: { text: string; muted: boolean }): void {
+  const id = 'qa-step-caption';
+  let strip = document.getElementById(id);
+  if (!strip) {
+    strip = document.createElement('div');
+    strip.id = id;
+    strip.setAttribute('role', 'presentation');
+    document.body.appendChild(strip);
+  }
+  // Restyled on EVERY paint, not only on creation: one strip is reused and a journey alternates
+  // between clauses and asides.
+  strip.style.cssText = [
+    'position:fixed', 'left:0', 'right:0', 'bottom:0', 'z-index:2147483646',
+    'padding:0.85rem clamp(1rem,4vw,3rem)',
+    'background:linear-gradient(0deg,rgba(8,14,24,0.94),rgba(8,14,24,0.82))',
+    // The accent bar and full-strength text mark a sentence as the criterion being proved; setup
+    // gets neither, so the two are distinguishable in a still frame.
+    caption.muted ? 'border-top:1px solid rgba(148,163,184,0.35)' : 'border-top:2px solid #60a5fa',
+    'font-family:system-ui,-apple-system,sans-serif',
+    'font-size:clamp(0.95rem,1.7vw,1.25rem)', 'line-height:1.4',
+    caption.muted ? 'color:#94a3b8' : 'color:#f4f7fb',
+    caption.muted ? 'font-style:italic' : 'font-style:normal',
+    'pointer-events:none',
+  ].join(';');
+  strip.textContent = caption.text;
+}
+
+function removeCaption(): void {
+  document.getElementById('qa-step-caption')?.remove();
+}
+```
+
+### `support/narrated-step.ts` - a step that narrates itself
+
+```ts
+import { test } from '@playwright/test';
+import { showStepCaption } from './title-card';
+import { watchPause } from './watch-mode';
+
+/**
+ * Outside watch mode this is exactly `test.step`: same name, same reporting, no extra time.
+ *
+ * The narration IS the step name, which is the scenario's own clause, so what a viewer is told and
+ * what the journey proves are the same string and no second script exists that could drift.
+ */
+export async function narratedStep(
+  page: Page,
+  name: string,
+  body: () => Promise<void>,
+  options: { hold?: number } = {}
+): Promise<void> {
+  await test.step(name, async () => {
+    await showStepCaption(page, name);
+    await body();
+    // Painted again before the hold, because a step that navigates destroys the first one along
+    // with the rest of the document, and the hold is exactly when the caption is being read.
+    await showStepCaption(page, name);
+    await watchPause(page, options.hold ?? 1);
+  });
+}
+```
+
+### `support/journey.ts` - binding a test to the scenario it proves
+
+The one non-obvious constraint, and it will bite an implementer immediately: **the runner reads a
+test's fixture list out of the source text of its callback's destructuring pattern.** It insists on a
+literal pattern and rejects `async (args) => ...`. A generic factory cannot write that pattern
+because it cannot know which fixtures a suite wants, so registration is pushed out to the suite,
+where the destructuring can be literal.
+
+That also matters for correctness, not just types: the suite's own `test` object carries its auto
+fixtures, and `test.use` / `test.skip` / `beforeEach` are declared on it at describe scope. A journey
+registered against the base object silently sits outside all of it.
+
+```ts
+import { test as base, type Page } from '@playwright/test';
+import { SCENARIOS, type Clause, type ScenarioKey } from './scenarios.generated';
+import { narratedStep } from './narrated-step';
+import { showStepCaption, showTitleCard, clearStepCaption } from './title-card';
+
+export type JourneyIntro = {
+  useCase: string;
+  context: string;
+  /** Optional: the scenario's own `@persona:` is used when it has one, and this overrides it. */
+  persona?: string;
+};
+
+export type JourneyRegistrar<Args> = (
+  title: string,
+  run: (args: Args) => Promise<void>
+) => void;
+
+export function createJourney<Args extends { page: Page }>(register: JourneyRegistrar<Args>) {
+  function journey<K extends ScenarioKey>(
+    key: K,
+    intro: JourneyIntro,
+    steps: { [C in Clause<K>]: (args: Args) => Promise<void> }
+  ): void {
+    const scenario = SCENARIOS[key];
+    const persona = intro.persona ?? scenario.persona;
+    if (!persona) {
+      // Thrown at registration rather than defaulted, because a blank persona is invisible in the
+      // one place it matters: a recording handed to someone who was not in the room.
+      throw new Error(
+        `Journey ${scenario.tag} has no persona. Give one in the intro, or add @persona: to the ` +
+          `scenario in ${scenario.source}.`
+      );
+    }
+
+    register(`${scenario.tag} ${scenario.title}`, async (args) => {
+      await showTitleCard(args.page, {
+        scenarioId: scenario.tag,
+        persona,
+        useCase: intro.useCase,
+        context: intro.context,
+      });
+
+      // The DOCUMENT decides the order, not the object literal: "Then" after "When" is a claim
+      // about sequence and part of the criterion.
+      for (const clause of scenario.steps) {
+        await narratedStep(args.page, clause, () => steps[clause](args));
+      }
+
+      // Leaving the caption up past the last clause would caption teardown with the final
+      // assertion's sentence.
+      await clearStepCaption(args.page);
+    });
+  }
+
+  return { journey };
+}
+
+/**
+ * A narrated step that is NOT one of the scenario's clauses: setup a journey performs but is not
+ * proving. Captioned in the muted style and named `aside:` in the report, so neither a viewer nor a
+ * reader comparing steps against criteria is misled about which is which.
+ */
+export async function aside(page: Page, name: string, body: () => Promise<void>): Promise<void> {
+  await base.step(`aside: ${name}`, async () => {
+    await showStepCaption(page, name, { muted: true });
+    await body();
+  });
+}
+```
+
+### Wiring it in the suite and the config
+
+One line per spec file, which is also where the fixture set a journey receives becomes visible:
+
+```ts
+// in a spec, or in a shared fixtures module for the suite
+import { test } from './fixtures';           // the suite's OWN test object
+import { createJourney } from './support/journey';
+
+const { journey } = createJourney<{ page: Page; api: ApiClient }>((title, run) =>
+  test(title, async ({ page, api }) => run({ page, api }))   // literal pattern, deliberately
+);
+```
+
+```ts
+// playwright.config.ts
+import { watchModeUse, watchModeTimeout, watchModeActionTimeout } from './support/watch-mode';
+
+export default defineConfig({
+  timeout: watchModeTimeout,
+  use: {
+    actionTimeout: watchModeActionTimeout,
+    ...watchModeUse,
+  },
+  projects: [
+    {
+      name: 'chromium',
+      // watchModeUse LAST: a device preset carries its own viewport, and a project's `use` wins
+      // over the config's, so spreading it here is what makes the recording viewport take effect.
+      use: { ...devices['Desktop Chrome'], ...watchModeUse },
+    },
+  ],
+});
+```
+
+### Recording, then publishing
+
+```bash
+# 1. Clean state. The journeys create the data they demonstrate.
+#    2. Single worker: parallel workers interleave into one output directory.
+E2E_VIDEO=1 E2E_SLOWMO=900 E2E_CARD_MS=4500 E2E_STEP_PAUSE=2000 \
+  npx playwright test --workers=1 <the journeys being recorded>
+
+# 3. Copy the .webm files OUT of the runner's output directory before anything else runs.
+#    4. Rename each to lead with its scenario id.
+# 5. Publish.
+```
+
+The publish step is a script, not a manual assembly, and its contract is section 7. Everything it
+needs is already in the emitted scenario module: the ids, the titles, and the order the acceptance
+document introduces them.
+
+---
+
+## 9. How to tell it went wrong
 
 Each of these has happened. All of them leave the run green.
 
@@ -192,7 +629,7 @@ Each of these has happened. All of them leave the run green.
 | The set runs under a minute | Filmed at test speed | Restore the pacing; a fast recording is not a cheap one, it is an unusable one |
 | The everyday suite got slower | A demonstration affordance became unconditional | Put it back behind the seam; the gating run pays nothing for demonstration |
 
-## 9. Before calling a recording session done
+## 10. Before calling a recording session done
 
 - [ ] Every clip opens, is 1080p, and is legible at full screen.
 - [ ] Every clip starts with a title card naming its scenario id.
