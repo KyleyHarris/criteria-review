@@ -13,6 +13,33 @@ Why video at all is in [`01-qa-approach.md`](01-qa-approach.md) and
 
 ---
 
+## 0. Two speeds, one suite
+
+**Tests run at full speed. Videos published for people run at a speed a person can follow.**
+
+The authoritative run is as fast as the machine allows. It gates the work, it runs on every change,
+and nothing about demonstration may slow it, loosen its budget, or change what it asserts. A journey
+that takes eight seconds there is doing its job.
+
+The published recording is the same journeys, the same assertions, the same code path, run at
+roughly an order of magnitude slower so a person who has never seen the software can watch it and
+understand what happened. That is not the same artefact serving two purposes badly; it is one
+artefact run twice, with the only difference being an environment seam that nobody sets by default.
+
+Two rules follow, and they are the ones most often broken in opposite directions:
+
+- **Never pace the gating run for watchability.** Slow motion, holds and title cards are inert unless
+  asked for. The moment a demonstration affordance costs the everyday suite a second per test, it
+  will be removed by whoever is waiting on the build, and the demonstration goes with it.
+- **Never publish a clip at test speed.** A recording that runs as fast as the suite is footage of a
+  cursor flickering around an unfamiliar interface. It is cheaper to make and worth nothing, because
+  the viewer cannot tell what happened, which is the entire reason the video exists.
+
+A useful check on both: if the everyday suite got slower this week, something demonstration-only
+became unconditional. If a set of clips runs in under a minute, it was filmed at test speed.
+
+---
+
 ## 1. What the recording has to be
 
 | Property | Value | Why it is not negotiable |
@@ -162,7 +189,8 @@ Each of these has happened. All of them leave the run green.
 | A clip nobody can place | Filename carries no scenario id | Rename to lead with the id; never publish an unlabelled clip |
 | The first assertion of a journey fails only on film | The title card was still overlaying the page | Remove the card explicitly rather than relying on navigation |
 | Captions disagree with the acceptance document | Step names were retyped rather than generated | See [`04-playwright-journeys.md`](04-playwright-journeys.md) |
-| The set runs under a minute | Pacing values too low to follow | Restore the pacing; a fast recording is not a cheap one, it is an unusable one |
+| The set runs under a minute | Filmed at test speed | Restore the pacing; a fast recording is not a cheap one, it is an unusable one |
+| The everyday suite got slower | A demonstration affordance became unconditional | Put it back behind the seam; the gating run pays nothing for demonstration |
 
 ## 9. Before calling a recording session done
 
@@ -172,6 +200,7 @@ Each of these has happened. All of them leave the run green.
 - [ ] Every filename leads with a scenario id that exists.
 - [ ] Every scenario in the document either has a clip or is named in the README as having none.
 - [ ] No file in the package matched nothing.
+- [ ] The clips run at human pace, and the authoritative suite is no slower than it was.
 - [ ] The recording run itself was green, and the run was a full pass rather than a filming session.
 - [ ] The package was produced by the command, not assembled.
 
