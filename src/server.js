@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { scanAll, toPosixPath } from './scan.js';
 import { setStatus, addNote, setFlag, clearNotes } from './write.js';
 import { indexVideos, videoFor, expectedPath } from './videos.js';
+import { listStandardDocs, readStandardDoc } from './standard.js';
 import { branchName, repoName } from './media.js';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -247,6 +248,22 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
           'accept-ranges': 'bytes',
         });
         return createReadStream(hit.file).pipe(res);
+      }
+
+      // The standard, readable in the page that judges against it. Read-only: there
+      // is no write route here, and there should not be. A reviewer disagreeing with
+      // a rule takes that to the repository that owns it, where it goes through
+      // review like any other change.
+      if (req.method === 'GET' && url.pathname === '/api/standard') {
+        return json(res, 200, { docs: await listStandardDocs() });
+      }
+
+      if (req.method === 'GET' && url.pathname === '/api/standard/doc') {
+        const doc = await readStandardDoc(url.searchParams.get('name') ?? '');
+        // 404 rather than 400 for a name that is not in the listing, including a
+        // traversal attempt: the honest answer is that no such document exists here.
+        if (!doc) return json(res, 404, { error: 'no such document' });
+        return json(res, 200, doc);
       }
 
       if (req.method === 'GET' && url.pathname === '/api/scenarios') {

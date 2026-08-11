@@ -306,3 +306,109 @@ kbd {
 .note-dialog menu { display: flex; gap: 8px; justify-content: flex-end; padding: 12px 0 0; margin: 0; }
 .note-dialog button { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
 .note-dialog button.primary { border-color: var(--accent); }
+
+/* ---- Reading tab: the standard and the walkthrough, beside the queue ---- */
+
+.tabs { display: flex; gap: 2px; }
+.tabs button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.tabs button:hover { color: var(--text); background: var(--panel-2); }
+.tabs button.active {
+  color: var(--text);
+  background: var(--panel-2);
+  border-color: var(--line);
+}
+
+/* The two panes share the queue's grid, so switching does not move the furniture. */
+#standard-pane { display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+
+/* `display` set on an element or class BEATS the hidden attribute's UA rule, so a
+   pane given a display here stays on screen while claiming to be hidden. Both panes
+   then render stacked. Needs the same specificity to win, not !important. */
+main[hidden], .filters[hidden], .counts[hidden] { display: none; }
+
+/* The two key-hint rows swap; the hidden one must actually go. */
+.keys { display: contents; }
+.keys[hidden] { display: none; }
+
+.doc-group {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 14px 12px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.doc-row { cursor: pointer; }
+.doc-row .row-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Rendered markdown. Measured column: these documents are prose, and a rule read
+   across a 2000px line is a rule read twice. */
+.md { line-height: 1.6; }
+/* A uniform measure in rem, NOT ch: `ch` resolves against each element's own font
+   size, so headings would get a visibly wider column than the prose under them. */
+.md > * { max-width: 62rem; }
+.md h1 { font-size: 24px; margin: 4px 0 16px; line-height: 1.25; }
+.md h2 { font-size: 18px; margin: 30px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); }
+/* The documents also separate sections with `---`, and a rule immediately above a
+   heading that draws its own would show two lines a few pixels apart. */
+.md hr + h2 { border-top: 0; padding-top: 0; margin-top: 6px; }
+.md h3 { font-size: 15px; margin: 22px 0 8px; }
+.md h4, .md h5, .md h6 { font-size: 13px; margin: 18px 0 6px; }
+.md p { margin: 10px 0; }
+.md li { margin: 5px 0; }
+.md ul, .md ol { padding-left: 22px; margin: 10px 0; }
+.md a { color: var(--accent); }
+.md hr { border: 0; border-top: 1px solid var(--line); margin: 24px 0; }
+
+.md code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--panel-2);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.md pre {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  /* Samples are copied into real code, so they scroll rather than wrap: a wrapped
+     line changes what the reader believes they are copying. */
+  overflow-x: auto;
+}
+.md pre code { background: none; padding: 0; font-size: 12px; line-height: 1.5; }
+
+.md blockquote {
+  margin: 14px 0;
+  padding: 2px 16px;
+  border-left: 3px solid var(--accent);
+  color: var(--text);
+  background: var(--panel);
+  border-radius: 0 8px 8px 0;
+}
+.md blockquote > *:first-child { margin-top: 10px; }
+.md blockquote > *:last-child { margin-bottom: 10px; }
+
+.md table {
+  border-collapse: collapse;
+  margin: 14px 0;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+}
+.md th, .md td {
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.md th { background: var(--panel-2); font-weight: 600; }

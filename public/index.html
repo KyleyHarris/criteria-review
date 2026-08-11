@@ -9,6 +9,10 @@
   <body>
     <header class="bar">
       <h1>Criteria review</h1>
+      <nav class="tabs" id="tabs">
+        <button data-tab="review" class="active">Review</button>
+        <button data-tab="standard">Standard</button>
+      </nav>
       <div class="counts" id="counts"></div>
       <div class="spacer"></div>
       <div class="filters">
@@ -36,7 +40,7 @@
 
     <div id="banner" class="banner" hidden title="click to dismiss"></div>
 
-    <main>
+    <main id="review-pane">
       <aside id="list" class="list" aria-label="Scenario queue"></aside>
 
       <section id="detail" class="detail">
@@ -44,14 +48,37 @@
       </section>
     </main>
 
+    <!--
+      The standard, readable beside the queue that judges against it. A reviewer
+      deciding whether a scenario is written correctly should not have to leave the
+      page and go find a repository to read the rule.
+    -->
+    <main id="standard-pane" hidden>
+      <aside id="doc-list" class="list" aria-label="Standard documents"></aside>
+      <section id="doc" class="detail md">
+        <p class="empty">Select a document.</p>
+      </section>
+    </main>
+
     <footer class="help">
-      <span><kbd>j</kbd>/<kbd>k</kbd> next / previous</span>
-      <span><kbd>a</kbd> accept</span>
-      <span><kbd>v</kbd> verified</span>
-      <span><kbd>n</kbd> note</span>
-      <span><kbd>f</kbd> fullscreen</span>
-      <span><kbd>r</kbd> reload</span>
-      <span><kbd>/</kbd> search</span>
+      <!--
+        Two sets, one shown at a time. Advertising `a` and `v` while reading would
+        offer actions that deliberately do nothing here, and a key that does nothing
+        teaches the reader to distrust the rest of the row.
+      -->
+      <span id="keys-review" class="keys">
+        <span><kbd>j</kbd>/<kbd>k</kbd> next / previous</span>
+        <span><kbd>a</kbd> accept</span>
+        <span><kbd>v</kbd> verified</span>
+        <span><kbd>n</kbd> note</span>
+        <span><kbd>f</kbd> fullscreen</span>
+        <span><kbd>r</kbd> reload</span>
+        <span><kbd>/</kbd> search</span>
+      </span>
+      <span id="keys-standard" class="keys" hidden>
+        <span><kbd>j</kbd>/<kbd>k</kbd> next / previous document</span>
+        <span><kbd>s</kbd> back to the queue</span>
+      </span>
       <span id="roots" class="roots"></span>
       <span id="toast" class="toast"></span>
     </footer>

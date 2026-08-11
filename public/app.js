@@ -6,6 +6,9 @@
 // be checkable in less time than it took to produce, so anything that adds a click
 // between reading a scenario and judging it has to earn its place.
 
+import { renderMarkdown, renderSource } from './markdown.js';
+import { resolveDocName } from './doc-name.js';
+
 const $ = (s) => document.querySelector(s);
 const state = {
   all: [],
@@ -16,6 +19,12 @@ const state = {
   // Set from saved state before the first load, and used to reselect the
   // scenario the reviewer was on. Cleared once honoured.
   restoreKey: null,
+  // The reading tab: which document is open, and the listing once fetched. Kept
+  // beside the queue's state rather than in its own module because the two share
+  // the keyboard and only one can be showing.
+  tab: 'review',
+  docs: [],
+  doc: null,
 };
 
 /**
@@ -46,6 +55,8 @@ function saveViewState() {
         video: $('#video').value,
         search: $('#search').value,
         selected: scenarioKey(state.view[state.index]),
+        tab: state.tab,
+        doc: state.doc,
       })
     );
   } catch {
@@ -68,6 +79,10 @@ function restoreViewState() {
   if (saved.search != null) $('#search').value = saved.search;
   state.restoreKey = saved.selected ?? null;
   state.savedProject = saved.project ?? '';
+  // The reading position is part of the session too: someone half way through a
+  // document who refreshes should be back on it, not at the top of the queue.
+  state.doc = saved.doc ?? null;
+  state.savedTab = saved.tab === 'standard' ? 'standard' : 'review';
 }
 
 /**
@@ -600,11 +615,137 @@ async function load({ keepIndex } = {}) {
   }
 }
 
+/**
+ * The reading tab.
+ *
+ * The standard is what the queue is judging against, so a reviewer deciding whether a
+ * scenario is written correctly should be able to read the rule without leaving the
+ * page. Read-only on purpose: disagreeing with a rule is a change to the repository
+ * that owns it, and goes through review like any other.
+ */
+function renderDocList() {
+  const el = $('#doc-list');
+  if (!state.docs.length) {
+    el.innerHTML = '<p class="empty">No standard documents found.</p>';
+    return;
+  }
+  // Grouped, because the two sets answer different questions: someone who has never
+  // seen this wants the walkthrough, someone mid-review wants the rule. One flat list
+  // serves neither.
+  let group = null;
+  el.innerHTML = state.docs
+    .map((d) => {
+      const heading =
+        d.group === group ? '' : `<div class="doc-group">${escapeHtml(d.groupLabel)}</div>`;
+      group = d.group;
+      return (
+        heading +
+        `<div class="row doc-row ${d.name === state.doc ? 'active' : ''}" data-doc="${escapeHtml(d.name)}">` +
+        `<div class="row-title">${escapeHtml(d.title)}</div>` +
+        `<div class="row-sub">${escapeHtml(d.file)}</div>` +
+        `</div>`
+      );
+    })
+    .join('');
+  const active = el.querySelector('.row.active');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+async function openDoc(rawName) {
+  const target = $('#doc');
+  const name = resolveDocName(state.docs, rawName, state.doc);
+  try {
+    const doc = await api(`/api/standard/doc?name=${encodeURIComponent(name)}`);
+    state.doc = doc.name;
+    // A .ts example is shown as source rather than parsed as prose: its comments and
+    // asterisks are code, and rendering them as markup would rewrite the sample.
+    target.innerHTML =
+      doc.kind === 'source' ? renderSource(doc.text, 'ts') : renderMarkdown(doc.text);
+    target.scrollTop = 0;
+    renderDocList();
+    saveViewState();
+  } catch (e) {
+    target.innerHTML = `<p class="empty">Could not open ${escapeHtml(name)}: ${escapeHtml(e.message)}</p>`;
+  }
+}
+
+async function showTab(tab) {
+  state.tab = tab;
+  $('#review-pane').hidden = tab !== 'review';
+  $('#standard-pane').hidden = tab !== 'standard';
+  for (const b of document.querySelectorAll('#tabs button')) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  }
+  // The queue's filters steer the queue and mean nothing while reading, so they go
+  // rather than sit there implying they apply to what is on screen. Same for the
+  // key hints: an advertised key that does nothing teaches distrust of the whole row.
+  $('.filters').hidden = tab !== 'review';
+  $('#counts').hidden = tab !== 'review';
+  $('#keys-review').hidden = tab !== 'review';
+  $('#keys-standard').hidden = tab === 'review';
+  saveViewState();
+
+  if (tab !== 'standard') return;
+  if (!state.docs.length) {
+    try {
+      state.docs = (await api('/api/standard')).docs;
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+  // Open something, always. A restored name marks its row active but has no text
+  // behind it until it is fetched, so leaving this to renderDocList alone shows a
+  // selected document with an empty pane - which reads as the document being blank.
+  const wanted = state.docs.some((d) => d.name === state.doc) ? state.doc : state.docs[0]?.name;
+  if (wanted) await openDoc(wanted);
+  else renderDocList();
+}
+
+/** Move through the reading list with the same keys as the queue. */
+function moveDoc(delta) {
+  if (!state.docs.length) return;
+  const at = state.docs.findIndex((d) => d.name === state.doc);
+  const next = Math.min(state.docs.length - 1, Math.max(0, (at === -1 ? 0 : at) + delta));
+  openDoc(state.docs[next].name);
+}
+
+$('#tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-tab]');
+  if (b) showTab(b.dataset.tab);
+});
+
+$('#doc-list').addEventListener('click', (e) => {
+  const row = e.target.closest('.doc-row');
+  if (row) openDoc(row.dataset.doc);
+});
+
+// Cross-references between the documents are rewritten to #doc= links, so following
+// one opens it here rather than downloading a file or dead-ending.
+$('#doc').addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#doc="]');
+  if (!a) return;
+  e.preventDefault();
+  openDoc(decodeURIComponent(a.getAttribute('href').slice('#doc='.length)));
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.target.matches('input, select, textarea')) {
     if (e.key === 'Escape') e.target.blur();
     return;
   }
+
+  // One key switches, from either side.
+  if (e.key === 's') return void showTab(state.tab === 'standard' ? 'review' : 'standard');
+
+  // While reading, only navigation applies. Leaving `a` and `v` live would let a
+  // reviewer promote a scenario they cannot currently see, which is the one action
+  // in this tool that must never happen by accident.
+  if (state.tab === 'standard') {
+    if (e.key === 'j') moveDoc(1);
+    else if (e.key === 'k') moveDoc(-1);
+    return;
+  }
+
   if (e.key === 'j') move(1);
   else if (e.key === 'k') move(-1);
   else if (e.key === 'a') act('accepted');
@@ -715,4 +856,9 @@ function listen() {
 restoreViewState();
 load()
   .then(listen)
+  .then(() => {
+    // After the queue, so a refresh into the reading tab still has the review pane
+    // populated behind it and switching back is instant.
+    if (state.savedTab === 'standard') return showTab('standard');
+  })
   .catch((e) => toast(e.message, true));
