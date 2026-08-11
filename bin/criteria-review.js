@@ -60,6 +60,8 @@ function parseArgs(argv) {
     else if (a === '--limit') args.limit = argv[++i];
     else if (a === '--commit') args.commit = argv[++i];
     else if (a === '--json') args.json = true;
+    // Widen past the tree the session is in. See scopedRoots.
+    else if (a === '--all') args.all = true;
     else if (a === '--format') args.format = argv[++i];
     // Verify rather than write: the gate's half of generation. See cmdGenerate.
     else if (a === '--check') args.check = true;
@@ -193,8 +195,9 @@ function usage() {
   criteria-review flag <ID>           mark it LOOK NOW
   criteria-review unflag <ID>         clear LOOK NOW
   criteria-review guide [skill]       print the agent instruction set
-  criteria-review queue               what needs a decision, most important first
+  criteria-review queue               what needs a decision here, most important first
                                         --limit <n>       how many to list (default 10)
+                                        --all             every registered project
                                         --json            machine-readable
   criteria-review show <ID> [proj]    one scenario in full, with its notes
   criteria-review note <ID> [proj]    write the architect's note (raises @review):
@@ -365,8 +368,32 @@ async function cmdGenerate(args) {
  * what points a note at an agent rather than back at the person who wrote it. An agent
  * asking a question uses `ask`, which is the same write with the other actor.
  */
+/**
+ * The projects a conversational review works on.
+ *
+ * Defaults to the tree the session is in, NOT every registered project. A review pass is
+ * work on one codebase, and dropping another project's queue into it is both noise and a
+ * real hazard: the flagged items at the top would belong to a different piece of work,
+ * and answering them from here means answering for a repository nobody in this session
+ * has open. `--all` widens deliberately.
+ *
+ * Falls back to everything when the working directory is not a registered project, which
+ * is what makes the command useful from anywhere.
+ */
+async function scopedRoots(args) {
+  if (args.projects.length || args.all) return rootsFrom(args);
+  const cfg = await loadConfig();
+  const cwd = process.cwd();
+  const here = (cfg.projects ?? []).filter(
+    (p) => cwd === resolve(p.path) || cwd.startsWith(resolve(p.path) + '/')
+  );
+  // The deepest match wins, so a worktree inside a registered parent scopes to itself.
+  if (here.length) return [here.sort((a, b) => b.path.length - a.path.length)[0]];
+  return rootsFrom(args);
+}
+
 async function resolveScenario(args, id) {
-  const roots = await rootsFrom(args);
+  const roots = await scopedRoots(args);
   const { results } = await scanAllRoots(roots);
   const wanted = String(id).replace(/^@/, '').toLowerCase();
   const project = args._[2];
@@ -411,7 +438,7 @@ function printScenario(s, { index, total } = {}) {
 }
 
 async function cmdQueue(args) {
-  const roots = await rootsFrom(args);
+  const roots = await scopedRoots(args);
   const { results } = await scanAllRoots(roots);
   const all = results.flatMap((r) => r.scenarios);
   // Same ordering the page uses, imported rather than reimplemented: a walk that
@@ -423,7 +450,10 @@ async function cmdQueue(args) {
     console.log(JSON.stringify({ total: queue.length, items: queue.slice(0, limit) }, null, 2));
     return;
   }
-  console.log(`${queue.length} scenario(s) still need a decision. Most important first:\n`);
+  console.log(
+    `${queue.length} scenario(s) still need a decision in ` +
+      `${roots.map((r) => r.name).join(', ')}. Most important first:\n`
+  );
   queue.slice(0, limit).forEach((s, i) => {
     const flags = (s.flags ?? []).includes('looknow') ? '  LOOK NOW' : '';
     console.log(

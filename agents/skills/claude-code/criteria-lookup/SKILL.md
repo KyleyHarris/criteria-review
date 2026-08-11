@@ -33,11 +33,13 @@ Then offer the choices as a **numbered menu**, always in the same order, so answ
 keypress rather than a sentence:
 
 ```
-1  accept   - this is what the software should do
-2  verify   - you watched it happen
-3  reject   - send it back to derived
-4  skip     - leave it, move on
-5  stop     - end the pass
+1  accept        - this is what the software should do
+2  verify        - you watched it happen
+3  reject        - send it back to derived
+4  code to match - write the code to match this criterion
+5  test to match - write the test to match the existing code
+6  skip          - leave it, move on
+7  stop          - end the pass
 
 ...or just type what is wrong, and that becomes the note.
 ```
@@ -82,6 +84,46 @@ about a person's own actions, and only they can say it happened.
 
 Accepting and noting are independent: `--message` may be passed alongside a status move, and both
 are recorded.
+
+## When the scenario and the software disagree
+
+This is the case the whole standard exists to surface, and the reviewer has to say **which side is
+wrong**. Neither answer is "reject": one of them keeps the criterion exactly as written.
+
+Say it as the WORK, not as a verdict. "Which artefact is wrong" is an argument; "write the code to
+match this" is an instruction somebody can pick up.
+
+**4, write the code to match this criterion.** The criterion stands, and the build has not caught
+up. Accepting it is correct even though the software fails it, because `accepted` is a claim about
+intent, not about the implementation:
+
+```bash
+criteria-review accept <ID> --message "WRITE THE CODE TO MATCH: <what the software does instead, in their words>"
+```
+
+Then say plainly how the gap stays visible: a journey citing this scenario now goes **red**, which
+is the defect surfacing in CI rather than in a list somebody has to remember. If no journey cites
+it yet, say so - the note and `@review` are the only thing carrying it, and writing the journey is
+the work that makes it self-reporting.
+
+**5, write the test to match the existing code.** The software is the truth here: the criterion was
+inferred, or it describes an intention nobody holds. Send it back to `derived`, which is exactly
+what that status means - written up from the delivered software, describing what it appears to do:
+
+```bash
+criteria-review reject <ID> --message "WRITE THE TEST TO MATCH THE CODE: <what the software actually does, in their words>"
+```
+
+Both raise `@review`, which hands the item to an agent. Report which one was recorded and what
+happens next, in one line.
+
+**Do not decide this for them.** Which way a disagreement resolves is the only question in the
+system that cannot be answered by reading either artefact, because both are self-consistent. The
+code cannot tell you it was meant to be different, and the document cannot tell you it was
+aspirational. Present the disagreement and ask.
+
+**Neither option does the work now.** Both record it as a work order and hand the item on. Doing it
+mid-pass is how a review of seventy-five scenarios becomes an afternoon on the first one.
 
 ---
 

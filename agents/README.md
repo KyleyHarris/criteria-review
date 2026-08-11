@@ -46,8 +46,18 @@ criteria-review verify <ID> --commit <sha>     # a person watched it happen
 criteria-review reject <ID>                    # back to derived
 ```
 
-`verify` refuses without a commit, deliberately: a verification with nothing behind it cannot be
-checked and ages into a lie. Never offer it because a scenario looks plausible.
+`verify` resolves the commit from the project under review and reports which one it recorded, so a
+verification is a word rather than a hash hunt. Never take it because a scenario looks plausible:
+it asserts something about a person's own actions.
+
+**When a scenario and the software disagree, the reviewer says which side is wrong.** That is the
+case the standard exists to surface, and neither answer is a rejection. Put it to them as the WORK rather than as a verdict: **write the code to match this criterion**, or
+**write the test to match the existing code**. The first keeps the criterion and `accept`s it -
+`accepted` is a claim about intent, not implementation, so a journey citing it then goes red and
+the defect surfaces in CI rather than in a list somebody has to remember. The second `reject`s it
+back to `derived`, which is precisely what that status means: written up from the delivered
+software. Both carry a note naming the work. Never pick between those two on their behalf; both artefacts are
+self-consistent, so nothing you can read settles it.
 
 Write each answer **immediately**, not in a batch at the end. Review state lives in the documents,
 not in a session that can end.
