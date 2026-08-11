@@ -10,9 +10,10 @@
 //        a status retired, a tag renamed, a field dropped from the emitted shape.
 // Minor: something was added that no existing consumer can be broken by - a new status,
 //        a new optional field.
-// Patch: wording and documentation.
+// Patch: wording, documentation, and a defect fix that changes emitted CONTENT without
+//        changing its shape - a consumer regenerates and commits, nothing else.
 //
 // The additive/breaking split matters more than the surface changing: adding a status
 // cannot break a consumer that does not use it, and treating it as breaking would make
 // every vocabulary addition look like a migration.
-export const STANDARD_VERSION = '1.1.1';
+export const STANDARD_VERSION = '1.1.2';

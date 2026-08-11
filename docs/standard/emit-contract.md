@@ -59,9 +59,13 @@ compared against the committed copy, which is the whole mechanism of `--check`.
 
 ### The neutral model
 
+The version shown in these two samples is **illustrative**. The authoritative number is in
+`src/version.js` and on the standard's README; it had already gone stale here once, which is why
+this sentence exists rather than a promise to keep them in step.
+
 ```json
 {
-  "standardVersion": "1.1.0",
+  "standardVersion": "<current>",
   "scenarios": [
     {
       "id": "LOCK-OPEN-001",
@@ -93,7 +97,7 @@ normalisation here would break every citing journey.
 ### The TypeScript renderer
 
 ```ts
-export const STANDARD_VERSION = '1.1.0';
+export const STANDARD_VERSION = '<current>';
 
 export const SCENARIOS = {
   'LOCK-OPEN-001': {

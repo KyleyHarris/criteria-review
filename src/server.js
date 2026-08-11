@@ -15,7 +15,7 @@ import { createReadStream, watch } from 'node:fs';
 import { dirname as dirOf } from 'node:path';
 import { extname, join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { scanAll } from './scan.js';
+import { scanAll, toPosixPath } from './scan.js';
 import { setStatus, addNote, setFlag, clearNotes } from './write.js';
 import { indexVideos, videoFor, expectedPath } from './videos.js';
 import { branchName, repoName } from './media.js';
@@ -270,9 +270,15 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
             video: hit
               ? { how: hit.how, name: basename(hit.file) }
               : null,
-            videoExpected: relative(
-              roots.find((r) => r.name === s.project)?.path ?? '',
-              expectedPath(index, s.id)
+            // Normalised for the same reason as a scenario's source: this is a
+            // repo-relative path shown in a web page and copied into scripts, so it
+            // should read the same whoever is looking at it. Display only, unlike
+            // `source`, which reaches a committed artefact.
+            videoExpected: toPosixPath(
+              relative(
+                roots.find((r) => r.name === s.project)?.path ?? '',
+                expectedPath(index, s.id)
+              )
             ),
           };
         };

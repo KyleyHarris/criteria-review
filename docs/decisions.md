@@ -193,3 +193,38 @@ This change is 1.1.0.
 
 **Not weakened to avoid a bump.** The distinction is what semantic versioning actually means,
 and the previous wording conflated "the vocabulary changed" with "consumers must act".
+
+---
+
+## D-007. Paths in the emitted artefact are POSIX, whatever platform produced them
+
+**Date:** 2026-08-11
+**Status:** decided
+**Standard version:** 1.1.2
+
+`scanProject` recorded each scenario's `source` as `relative(root, file)`, which returns the
+host's own separator. That string does not stay inside the process: it is written into the
+generated artefact that consumers commit, and `generate --check` compares that artefact byte for
+byte.
+
+Left native, the same repository with the same documents emits `documentation\ui-qa\x.md` on
+Windows and `documentation/ui-qa/x.md` on macOS. Each platform then fails the other's gate, and
+the failure reports drift that does not exist. That is worse than a missed defect: a gate which
+cries wolf is a gate people learn to skip, and this one is the mechanism holding the criteria and
+the tests together.
+
+Normalised at the single point where a path stops being a filesystem handle and becomes recorded
+data. `isCriteriaPath` uses the same splitter, so a mixed-separator path cannot match in one
+place and fail in the other. The video path shown in the review page is normalised too, for
+consistency rather than correctness - it is display only.
+
+**Splits on both separators rather than on the platform's `sep`.** Windows accepts forward
+slashes as well, so a mixed path is reachable there, and a `sep`-only fix would also be untestable
+on a POSIX machine: the test would pass whether or not the normalisation existed. The three tests
+guarding this assert against a literal backslash and were proved red by making `toPosixPath` the
+identity function.
+
+**Versioning.** The rule had no category for a defect fix that changes emitted content without
+changing its shape, so patch now says so explicitly rather than leaving it to be inferred.
+Consumers regenerate and commit; nothing else changes. On a POSIX machine the emitted bytes are
+identical, confirmed against both consumers.

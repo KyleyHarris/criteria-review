@@ -1,6 +1,6 @@
 # The acceptance-criteria standard
 
-**Standard version 1.1.1.** This directory is the source of truth for how acceptance criteria
+**Standard version 1.1.2.** This directory is the source of truth for how acceptance criteria
 are written, confirmed, cited by tests, and gated. Consumer projects hold pointers and their own
 instance data. They do not restate it. See `../decisions.md` D-001.
 
@@ -53,7 +53,8 @@ last conformed to without reading this directory.
   status retired, a tag renamed, a field dropped from the emitted shape.
 - **Minor** - something was added that no existing consumer can be broken by: a new status, a
   new optional field.
-- **Patch** - wording and documentation.
+- **Patch** - wording, documentation, and a defect fix that changes emitted content without
+  changing its shape: a consumer regenerates and commits, nothing else.
 
 The additive-versus-breaking split matters more than the surface changing. Adding a status
 cannot break a consumer that does not use it, and treating that as a major bump would make every

@@ -8,8 +8,26 @@
 // absent declaration fails loudly at the moment it is asked for. See decisions D-001.
 
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { join, relative } from 'node:path';
 import { parseDocument } from './parse.js';
+
+/**
+ * A repo-relative path with forward slashes, whatever platform produced it.
+ *
+ * `relative()` returns the host's own separator, and that string does not stay
+ * inside this process: it becomes a scenario's `source`, which is written into the
+ * generated artefact that consumers commit and that `generate --check` compares byte
+ * for byte. Left native, a document scanned on Windows emits `documentation\ui-qa\x.md`
+ * where the same repository on macOS emits `documentation/ui-qa/x.md`, so the two
+ * platforms produce different artefacts from identical inputs and each fails the
+ * other's gate with no defect to find.
+ *
+ * Splits on both separators rather than on `sep`, because Windows accepts forward
+ * slashes too and a mixed path is therefore reachable on either platform.
+ */
+export function toPosixPath(path) {
+  return path.split(/[\\/]/).join('/');
+}
 
 /**
  * Directory names that hold acceptance criteria.
@@ -60,7 +78,9 @@ async function* walk(dir, depth = 0) {
 
 /** True when the path sits under a directory the convention recognises. */
 function isCriteriaPath(path) {
-  const parts = path.split(sep);
+  // Same splitter as toPosixPath, so a mixed-separator path cannot match here while
+  // failing there, or the other way round.
+  const parts = path.split(/[\\/]/);
   return parts.some((p) => CRITERIA_DIRS.includes(p));
 }
 
@@ -75,7 +95,9 @@ export async function scanProject(root, name) {
     if (!isCriteriaPath(file)) continue;
     files.push(file);
     const text = await readFile(file, 'utf8');
-    const rel = relative(root, file);
+    // Normalised, because this reaches the generated artefact and a committed file
+    // must not differ by the platform that produced it. See toPosixPath.
+    const rel = toPosixPath(relative(root, file));
     for (const s of parseDocument(text, rel)) {
       scenarios.push({ ...s, project: name, absolutePath: file });
     }
