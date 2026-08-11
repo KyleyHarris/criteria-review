@@ -295,6 +295,11 @@ demonstration affordance never becomes part of the product's real surface.
 scenario is just a recording, and the reader cannot tell what it is meant to prove. The
 package reads as `@LOCK-OPEN-001, the cashier's own PIN resumes their session in place, video`.
 
+**The mechanics are in [`09-recording-journeys.md`](09-recording-journeys.md)** and are not
+repeated here: resolution, pacing, the timeout the first recording always trips, the blank-video
+trap when a journey opens its own browser context, and how the clips become a package. That file
+is written to be executed rather than read.
+
 ## 9. Adding a journey: the recipe
 
 1. Pick the scenario. If there is no scenario, write one first. Automation follows the
