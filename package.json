@@ -1,0 +1,31 @@
+{
+  "name": "criteria-review",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Review acceptance criteria across projects: surface derived scenarios needing approval, annotate them, and write the outcome back into the source documents.",
+  "license": "MIT",
+  "author": "Kyley Harris",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KyleyHarris/criteria-review.git"
+  },
+  "homepage": "https://github.com/KyleyHarris/criteria-review#readme",
+  "type": "module",
+  "bin": {
+    "criteria-review": "bin/criteria-review.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node bin/criteria-review.js",
+    "list": "node bin/criteria-review.js list",
+    "test": "node --test \"test/*.test.js\""
+  },
+  "comment": "Plain ESM JavaScript with no dependencies and no build step, deliberately. This is invoked globally from any directory; a tool that needs compiling before it runs is a tool that stops being run.",
+  "files": [
+    "bin/",
+    "src/",
+    "public/"
+  ]
+}

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Criteria review</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="bar">
+      <h1>Criteria review</h1>
+      <div class="counts" id="counts"></div>
+      <div class="spacer"></div>
+      <div class="filters">
+        <select id="project"><option value="">all projects</option></select>
+        <select id="status">
+          <option value="needs-review">needs review</option>
+          <option value="looknow">LOOK NOW (flagged)</option>
+          <option value="review">NOTED (awaiting an agent)</option>
+          <option value="noted">has review notes</option>
+          <option value="untracked">untracked (no id/status)</option>
+          <option value="derived">derived</option>
+          <option value="verified">verified</option>
+          <option value="accepted">accepted</option>
+          <option value="">everything</option>
+        </select>
+        <select id="video">
+          <option value="">any video</option>
+          <option value="has">has recording</option>
+          <option value="named">recording (named)</option>
+          <option value="none">no recording</option>
+        </select>
+        <input id="search" type="search" placeholder="filter text" />
+      </div>
+    </header>
+
+    <div id="banner" class="banner" hidden title="click to dismiss"></div>
+
+    <main>
+      <aside id="list" class="list" aria-label="Scenario queue"></aside>
+
+      <section id="detail" class="detail">
+        <p class="empty">Select a scenario, or press <kbd>j</kbd> to start the queue.</p>
+      </section>
+    </main>
+
+    <footer class="help">
+      <span><kbd>j</kbd>/<kbd>k</kbd> next / previous</span>
+      <span><kbd>a</kbd> accept</span>
+      <span><kbd>v</kbd> verified</span>
+      <span><kbd>n</kbd> note</span>
+      <span><kbd>f</kbd> fullscreen</span>
+      <span><kbd>r</kbd> reload</span>
+      <span><kbd>/</kbd> search</span>
+      <span id="roots" class="roots"></span>
+      <span id="toast" class="toast"></span>
+    </footer>
+
+    <dialog id="note-dialog" class="note-dialog">
+      <form method="dialog">
+        <h3>Review note</h3>
+        <p id="note-for" class="note-for"></p>
+        <textarea id="note-text" rows="8" placeholder="What is wrong, or what the intent should be. Several lines are fine."></textarea>
+        <menu>
+          <button value="cancel">Cancel</button>
+          <button value="save" class="primary">Save note</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
