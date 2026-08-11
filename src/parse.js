@@ -134,6 +134,11 @@ export function parseDocument(text, source) {
   let pendingNotes = [];
   let fenceStart = null;
   let inFence = false;
+  // Whether a scenario in the CURRENT fence has already claimed the position above it as its note
+  // anchor. Only one can: above the fence is above the FIRST scenario in it, and handing that same
+  // offset to the second means a note written for the second is reparsed as the first's. See the
+  // anchor comment below.
+  let fenceAnchorTaken = false;
   let current = null;
 
   const finish = () => {
@@ -152,6 +157,7 @@ export function parseDocument(text, source) {
       if (!inFence) {
         inFence = true;
         fenceStart = offsets[i];
+        fenceAnchorTaken = false;
       } else {
         inFence = false;
         fenceStart = null;
@@ -242,12 +248,25 @@ export function parseDocument(text, source) {
         intent: pendingIntent,
         notes: pendingNotes,
         source,
-        // Where a note should be inserted: above the fence when there is one, else
-        // above the tag line, else above the Scenario line itself.
-        anchor: fenceStart ?? pendingTagStart ?? offsets[i],
+        // Where a note should be inserted: above the fence when there is one, else above the tag
+        // line, else above the Scenario line itself.
+        //
+        // ONLY THE FIRST SCENARIO IN A FENCE MAY USE THE FENCE. A fence can hold several scenarios,
+        // and the position above it is above the first of them - so giving every scenario in the
+        // block that same offset made a note written against the second reparse as a note on the
+        // first. addNote verifies its own write, so it did not corrupt anything; it failed and
+        // restored the file, and `ask` was simply unusable on any packed document. Later scenarios
+        // anchor above their own tag line instead, which is inside the fence: an inert HTML comment
+        // there is read back correctly, and it is the only position that belongs to that scenario
+        // and no other.
+        anchor: (!fenceAnchorTaken ? fenceStart : null) ?? pendingTagStart ?? offsets[i],
         blockStart: pendingTagStart ?? offsets[i],
         index: scenarios.length,
       };
+      // Claimed by whichever scenario in this fence was parsed first; every later one anchors above
+      // its own tag line instead.
+      if (fenceStart !== null) fenceAnchorTaken = true;
+
       pendingTags = [];
       pendingTagStart = null;
       pendingIntent = null;

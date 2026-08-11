@@ -405,3 +405,83 @@ test('a note containing a comment terminator cannot break the document', async (
   assert.equal(parseDocument(after, file).length, 2);
   assert.doesNotMatch(after, /<!-- review 2026-08-09: this --> should/);
 });
+
+// A fence holding SEVERAL scenarios, which is what a document looks like before anyone
+// splits it. This shape is the one `ask` could not write to at all.
+const PACKED_DOC = `# Doc
+
+### Feature: Locking
+
+\`\`\`gherkin
+@PACK-001 @status:derived
+Scenario: First in the fence
+  Given a
+  Then b
+
+@PACK-002 @status:derived
+Scenario: Second in the same fence
+  Given c
+  Then d
+
+@PACK-003 @status:derived
+Scenario: Third in the same fence
+  Given e
+  Then f
+\`\`\`
+`;
+
+// What this guards: a note written against the second or third scenario of a packed fence
+// used to be inserted above the FENCE, which is above the first. The write then reparsed as
+// a note on the first scenario, addNote's own verification correctly refused it, and the
+// file was restored - so `ask` failed for every scenario in a packed document except the
+// first one, and there was no way to raise a question against it at all. Observed on 4C's
+// company-status-and-membership document, which held nine scenarios in one fence.
+test('a note on the second scenario of a packed fence lands on that scenario', async () => {
+  const file = await fixture(PACKED_DOC);
+  await addNote(file, 'PACK-002', 'this one, not the first', {
+    author: 'claude',
+    date: '2026-08-11',
+  });
+  const s = await reread(file);
+
+  assert.equal(notesOf(s, 'PACK-002').length, 1);
+  assert.match(notesOf(s, 'PACK-002')[0].text, /this one, not the first/);
+  // The failure mode being guarded is specifically that it attaches to the wrong scenario.
+  assert.equal(notesOf(s, 'PACK-001').length, 0);
+  assert.equal(notesOf(s, 'PACK-003').length, 0);
+  // And nothing was lost: three scenarios in, three out.
+  assert.equal(s.length, 3);
+});
+
+test('every scenario in a packed fence can carry its own note at once', async () => {
+  const file = await fixture(PACKED_DOC);
+  for (const id of ['PACK-001', 'PACK-002', 'PACK-003']) {
+    await addNote(file, id, `question about ${id}`, { author: 'claude', date: '2026-08-11' });
+  }
+  const s = await reread(file);
+
+  // Asserted together rather than one at a time: each write reparses the file the previous
+  // one produced, so an anchor that drifted as notes accumulated would only show up here.
+  for (const id of ['PACK-001', 'PACK-002', 'PACK-003']) {
+    assert.equal(notesOf(s, id).length, 1, `${id} should carry exactly its own note`);
+    assert.match(notesOf(s, id)[0].text, new RegExp(`question about ${id}`));
+  }
+  assert.equal(s.length, 3);
+});
+
+test('a note on a packed scenario can be cleared again without touching its neighbours', async () => {
+  const file = await fixture(PACKED_DOC);
+  for (const id of ['PACK-001', 'PACK-002', 'PACK-003']) {
+    await addNote(file, id, `question about ${id}`, { author: 'claude', date: '2026-08-11' });
+  }
+  const removed = await clearNotes(file, 'PACK-002', { actor: ACTOR_ARCHITECT });
+  const s = await reread(file);
+
+  // The note written inside a fence has to be removable from inside it too. A clear that
+  // could not find it would leave a finished discussion in the document forever.
+  assert.equal(removed, 1);
+  assert.equal(notesOf(s, 'PACK-002').length, 0);
+  assert.equal(notesOf(s, 'PACK-001').length, 1);
+  assert.equal(notesOf(s, 'PACK-003').length, 1);
+  assert.equal(s.length, 3);
+});
