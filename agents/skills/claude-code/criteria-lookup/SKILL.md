@@ -38,8 +38,9 @@ keypress rather than a sentence:
 3  reject        - send it back to derived
 4  code to match - write the code to match this criterion
 5  test to match - write the test to match the existing code
-6  skip          - leave it, move on
-7  stop          - end the pass
+6  check drift   - read the implementation and report whether it matches
+7  skip          - leave it, move on
+8  stop          - end the pass
 
 ...or just type what is wrong, and that becomes the note.
 ```
@@ -85,6 +86,45 @@ about a person's own actions, and only they can say it happened.
 Accepting and noting are independent: `--message` may be passed alongside a status move, and both
 are recorded.
 
+## 6, checking for drift against the source
+
+Reading the implementation before deciding. Cheap, often decisive, and **evidence rather than a
+verdict** - it is the one option here that produces a finding instead of a record.
+
+Work clause by clause, not scenario by scenario. Each `Then` is an assertion, and the useful answer
+is which of them the code supports:
+
+1. Find the code that would produce the behaviour. Start from the actor's entry point, not from a
+   symbol whose name matches a word in the scenario.
+2. For every `Then` and trailing `And`, report one of three things, with `file:line`:
+   - **supported** - the code does this, and here is where
+   - **contradicted** - the code does something else, and here is what
+   - **cannot tell from reading** - the path is dynamic, config-driven, or spread across services
+3. Say plainly which it is. Do not average three supported and one contradicted into "mostly fine";
+   the contradicted clause is the finding.
+
+Then re-present the menu, because the drift check informs the decision and does not make it.
+
+**State what the evidence is worth, every time.** Citing `file:line` proves a line was read. Only
+running the software proves the system does it. A clause that looks supported can still fail on a
+guard three layers up, and a clause that looks contradicted can be handled somewhere you did not
+read. Say "read, not run" in those words, so nobody mistakes it for verification.
+
+**Never promote a status off a code read.** Not `verified`, which claims a person watched it, and
+not `accepted`, which is a claim about intent that the implementation has no standing to settle.
+The implementation is not a source of intent: it contains what the system does, never why anyone
+wanted it.
+
+If the finding is worth keeping - a real contradiction, or a clause nobody can trace - offer to
+record it. It is the agent's finding, so it goes in as the agent:
+
+```bash
+criteria-review ask <ID> [project] --message "DRIFT: <clause> is contradicted by <file:line>: <what the code does>" --as <who>
+```
+
+That raises `@looknow` rather than `@review`, which is correct: the finding is a question for the
+architect, not an instruction for an agent.
+
 ## When the scenario and the software disagree
 
 This is the case the whole standard exists to surface, and the reviewer has to say **which side is
@@ -116,6 +156,9 @@ criteria-review reject <ID> --message "WRITE THE TEST TO MATCH THE CODE: <what t
 
 Both raise `@review`, which hands the item to an agent. Report which one was recorded and what
 happens next, in one line.
+
+A drift check (6) is the natural thing to run first when you cannot tell which way it should go.
+It settles what the code does; it never settles what the code should do.
 
 **Do not decide this for them.** Which way a disagreement resolves is the only question in the
 system that cannot be answered by reading either artefact, because both are self-consistent. The

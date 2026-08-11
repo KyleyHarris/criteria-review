@@ -59,6 +59,14 @@ back to `derived`, which is precisely what that status means: written up from th
 software. Both carry a note naming the work. Never pick between those two on their behalf; both artefacts are
 self-consistent, so nothing you can read settles it.
 
+**Checking a scenario against the source is evidence, not a verdict.** Report each `Then` clause as
+supported, contradicted, or untraceable, with `file:line`, and say "read, not run" in those words -
+citing a line proves a line was read, and only running the software proves the system does it.
+Never promote a status off a code read: not `verified`, which claims a person watched it, and not
+`accepted`, which is a claim about intent that the implementation has no standing to settle. A
+finding worth keeping goes in as the agent's, via `ask`, which raises `@looknow` - it is a question
+for the architect, not an instruction for an agent.
+
 Write each answer **immediately**, not in a batch at the end. Review state lives in the documents,
 not in a session that can end.
 
