@@ -8,6 +8,16 @@
 
 import { renderMarkdown, renderSource } from './markdown.js';
 import { resolveDocName } from './doc-name.js';
+// Shared with the command line, so a conversational review walks the same order the
+// page shows. Two implementations of "most important first" would disagree.
+import {
+  STATUS_ORDER,
+  flagged,
+  needsAgent,
+  intentClass,
+  scenarioRisk,
+  orderQueue,
+} from './queue-order.js';
 
 const $ = (s) => document.querySelector(s);
 const state = {
@@ -102,31 +112,6 @@ function banner(text) {
   };
 }
 
-// Lifecycle order. Anything not listed is an unknown status, which sorts as
-// urgent rather than being silently treated as fine: a consumer introduced `proposed`
-// before the standard moved here, and a status it cannot rank must not be ranked safe.
-const STATUS_ORDER = { null: 0, proposed: 1, derived: 2, verified: 3, accepted: 4 };
-
-/**
- * Is this intent actually SOURCED, or does it merely have words in it?
- *
- * Written as an allowlist on purpose. The first version matched the literal string
- * INFERRED and treated everything else as sourced, which rendered
- * "NONE - I invented this" in the green, safe style - the exact opposite of the
- * truth, on the single most dangerous class of scenario there is.
- *
- * A citation looks like a file, an issue, or a URL. Prose that merely mentions
- * intent is not a source, so anything that does not resemble a citation is
- * treated as unsourced and shown as needing attention.
- */
-function intentClass(intent) {
-  if (!intent) return 'missing';
-  const t = String(intent);
-  const citesSomething =
-    /\.(md|cs|ts|js|txt|pdf)\b/i.test(t) || /https?:\/\//i.test(t) || /#\d+/.test(t);
-  return citesSomething ? 'sourced' : 'unsourced';
-}
-
 async function api(path, options) {
   const r = await fetch(path, {
     headers: { 'content-type': 'application/json' },
@@ -171,70 +156,12 @@ function matchesStatus(s, filter) {
   return s.status === filter;
 }
 
-const flagged = (s) => (s.flags || []).includes('looknow');
-const needsAgent = (s) => (s.flags || []).includes('review');
-
 function matchesVideo(s, filter) {
   if (filter === '') return true;
   if (filter === 'has') return !!s.video;
   if (filter === 'named') return s.video?.how === 'named';
   if (filter === 'none') return !s.video;
   return true;
-}
-
-/**
- * Risk of a single scenario, lower is more urgent.
- *
- * Two independent signals, because they fail differently. Status says whether
- * anyone has confirmed the requirement; intent provenance says whether the
- * requirement was sourced or invented. A `derived` scenario whose intent was
- * inferred from the implementation is the most dangerous thing here: it reads as
- * a requirement, and a test citing it can never disagree with the software.
- */
-function scenarioRisk(s) {
-  const status = STATUS_ORDER[s.status] ?? 0; // unknown/absent status is most urgent
-  const cls = intentClass(s.intent);
-  const intent = cls === 'missing' ? 0 : cls === 'unsourced' ? 1 : 2;
-  return status * 10 + intent;
-}
-
-/**
- * Group the queue by document and order the documents riskiest-first, keeping
- * each document's own sequence intact.
- *
- * Why document-major rather than a flat risk sort: reviewing is dominated by the
- * cost of loading a feature's context into your head, not by reading any single
- * scenario. Interleaving two files means paying that cost on every row. Ordering
- * whole documents riskiest-first is also what "batches, small and ordered
- * riskiest-first" means in practice - forty unrelated items presented at once get
- * rubber-stamped.
- */
-function orderQueue(items) {
-  const docs = new Map();
-  for (const s of items) {
-    const key = `${s.project}|${s.source}`;
-    if (!docs.has(key)) docs.set(key, []);
-    docs.get(key).push(s);
-  }
-
-  const ranked = [...docs.entries()].map(([key, list]) => ({
-    key,
-    list: [...list].sort((a, b) => (a.index ?? 0) - (b.index ?? 0)),
-    // A document is as urgent as its worst scenario, then by how much unreviewed
-    // work it holds, so the big blind spots come before the near-finished ones.
-    worst: Math.min(...list.map(scenarioRisk)),
-    outstanding: list.length,
-  }));
-
-  ranked.sort(
-    (a, b) => a.worst - b.worst || b.outstanding - a.outstanding || a.key.localeCompare(b.key)
-  );
-
-  const ordered = ranked.flatMap((d) => d.list);
-  // A @looknow is a deliberate interrupt from a working session, so it outranks
-  // the document grouping. Grouping optimises a steady review pass; a flag means
-  // someone found something and wants eyes on it before that pass gets there.
-  return [...ordered.filter(flagged), ...ordered.filter((s) => !flagged(s))];
 }
 
 function applyFilters() {

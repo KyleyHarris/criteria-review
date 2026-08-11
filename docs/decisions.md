@@ -228,3 +228,32 @@ identity function.
 changing its shape, so patch now says so explicitly rather than leaving it to be inferred.
 Consumers regenerate and commit; nothing else changes. On a POSIX machine the emitted bytes are
 identical, confirmed against both consumers.
+
+---
+
+## D-008. Releases are tagged, so a consumer can pin one
+
+**Date:** 2026-08-11
+**Status:** decided
+
+Two repositories now depend on this tool, and one of them wires it into a verification gate. A
+consumer that tracks whatever is on the default branch inherits every change the moment it lands,
+including a change to the emitted shape, and discovers it as a broken build with no version to name
+in the report.
+
+Every release is therefore an annotated tag, `v<package version>`, pushed with the commit. The tag
+message records the **standard version** that release ships, because those are two different numbers
+answering two different questions: the package version is what you pin and download, and the
+standard version is what your criteria conform to.
+
+```
+git tag -a v0.2.0 -m "criteria-review 0.2.0 - standard 1.1.2 ..."
+git push origin main --tags
+```
+
+**Alternative weighed.** *Tag only the standard version.* Rejected: a consumer pins an artefact, not
+a specification, and two releases can ship the same standard. The tag has to name the thing being
+downloaded.
+
+**Consequence.** Bumping the package version is part of cutting a release rather than an
+afterthought, and a release note that does not name its standard version is incomplete.

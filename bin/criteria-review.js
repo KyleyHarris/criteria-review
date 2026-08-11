@@ -12,7 +12,9 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve, basename } from 'node:path';
 import { createReviewServer } from '../src/server.js';
 import { scanAll } from '../src/scan.js';
-import { isUntracked } from '../src/parse.js';
+import { isUntracked, needsReview } from '../src/parse.js';
+import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
+import { orderQueue } from '../public/queue-order.js';
 import { buildModel, RENDERERS } from '../src/emit.js';
 import { scanAll as scanAllRoots } from '../src/scan.js';
 import { resolveMediaRoot, masterVideoDir, MEDIA_CONFIG, branchName } from '../src/media.js';
@@ -49,6 +51,9 @@ function parseArgs(argv) {
     // "agent"; name the session when several are asking at once.
     else if (a === '--as') args.as = argv[++i];
     else if (a === '--out') args.out = argv[++i];
+    else if (a === '--limit') args.limit = argv[++i];
+    else if (a === '--commit') args.commit = argv[++i];
+    else if (a === '--json') args.json = true;
     else if (a === '--format') args.format = argv[++i];
     // Verify rather than write: the gate's half of generation. See cmdGenerate.
     else if (a === '--check') args.check = true;
@@ -181,6 +186,16 @@ function usage() {
   criteria-review focus <ID>          jump every open page to a scenario
   criteria-review flag <ID>           mark it LOOK NOW
   criteria-review unflag <ID>         clear LOOK NOW
+  criteria-review guide [skill]       print the agent instruction set
+  criteria-review queue               what needs a decision, most important first
+                                        --limit <n>       how many to list (default 10)
+                                        --json            machine-readable
+  criteria-review show <ID> [proj]    one scenario in full, with its notes
+  criteria-review note <ID> [proj]    write the architect's note (raises @review):
+                                        --message "..."   what it says
+  criteria-review accept <ID> [proj]  confirm it is what the software SHOULD do
+  criteria-review verify <ID> [proj]  you watched it happen: --commit <sha> required
+  criteria-review reject <ID> [proj]  send it back to derived
   criteria-review generate [path]     emit the criteria for a test suite to cite:
                                         --out <path>      where to write (required)
                                         --format ts|json  default from the extension
@@ -324,6 +339,133 @@ async function cmdGenerate(args) {
       console.log(`  ${String(n).padStart(4)}  ${source}`);
     }
   }
+}
+
+/**
+ * The verbs a CONVERSATIONAL review needs: walk the queue, read one scenario, answer it.
+ *
+ * These exist because the browser is not always the right surface. Asked about one
+ * scenario mid-task, opening a page, finding it and reading it costs more than the
+ * answer is worth, and the review then does not happen. The design rule the whole
+ * standard turns on is that an artefact must be checkable in less time than it took to
+ * produce; a second surface with a lower floor is that rule applied to the tool itself.
+ *
+ * THEY WRITE DIRECTLY TO THE DOCUMENTS rather than posting to the server, so a review
+ * works with nothing running. An open page still updates itself: the server watches the
+ * criteria directories, so a write from here reaches a browser without either knowing
+ * about the other.
+ *
+ * Every write here is the ARCHITECT acting. That is what retires a raised @looknow and
+ * what points a note at an agent rather than back at the person who wrote it. An agent
+ * asking a question uses `ask`, which is the same write with the other actor.
+ */
+async function resolveScenario(args, id) {
+  const roots = await rootsFrom(args);
+  const { results } = await scanAllRoots(roots);
+  const wanted = String(id).replace(/^@/, '').toLowerCase();
+  const project = args._[2];
+
+  const hits = results
+    .flatMap((r) => r.scenarios.map((s) => ({ ...s, root: r.root })))
+    .filter((s) => s.id && s.id.toLowerCase() === wanted)
+    .filter((s) => (project ? s.project === project : true));
+
+  if (!hits.length) throw new Error(`No scenario ${id} in the registered projects.`);
+  if (hits.length > 1) {
+    // Never guess between two: the id is the join, and writing to the wrong copy would
+    // record an answer against a scenario the architect never read.
+    throw new Error(
+      `${id} exists in ${hits.length} projects (${hits.map((h) => h.project).join(', ')}). ` +
+        `Name one: criteria-review <verb> ${id} <project>`
+    );
+  }
+  return { ...hits[0], file: join(hits[0].root, hits[0].source) };
+}
+
+/** One scenario, in full, as a person reads it. */
+function printScenario(s, { index, total } = {}) {
+  const where = index ? `[${index}/${total}] ` : '';
+  const flags = (s.flags ?? []).map((f) => `@${f}`).join(' ');
+  console.log(`\n${where}${s.id ?? '(no id)'}  ${s.title}`);
+  console.log(
+    `  ${s.project} · ${s.source}${s.feature ? ` · ${s.feature}` : ''}\n` +
+      `  status: ${s.status ?? '(none)'}${s.persona ? ` · persona: ${s.persona}` : ''}` +
+      `${s.verifiedOn ? ` · verified ${s.verifiedOn}` : ''}${flags ? ` · ${flags}` : ''}`
+  );
+  // The intent line is printed even when absent, and says so. An unsourced scenario is
+  // the most dangerous kind here, and silence would read as "fine".
+  console.log(`  intent: ${s.intent ?? 'NONE - not sourced'}`);
+  if (s.steps?.length) {
+    console.log('');
+    for (const step of s.steps) console.log(`    ${step}`);
+  }
+  for (const n of s.notes ?? []) {
+    console.log(`\n  note${n.who ? ` (${n.who})` : ''}: ${n.text.replace(/\n/g, '\n        ')}`);
+  }
+}
+
+async function cmdQueue(args) {
+  const roots = await rootsFrom(args);
+  const { results } = await scanAllRoots(roots);
+  const all = results.flatMap((r) => r.scenarios);
+  // Same ordering the page uses, imported rather than reimplemented: a walk that
+  // disagreed with the screen would leave the reviewer unable to tell which was right.
+  const queue = orderQueue(all.filter((s) => needsReview(s)));
+  const limit = Number(args.limit ?? 10);
+
+  if (args.json) {
+    console.log(JSON.stringify({ total: queue.length, items: queue.slice(0, limit) }, null, 2));
+    return;
+  }
+  console.log(`${queue.length} scenario(s) still need a decision. Most important first:\n`);
+  queue.slice(0, limit).forEach((s, i) => {
+    const flags = (s.flags ?? []).includes('looknow') ? '  LOOK NOW' : '';
+    console.log(
+      `${String(i + 1).padStart(3)}. ${(s.id ?? '(no id)').padEnd(22)} ${(s.status ?? 'untracked').padEnd(9)}` +
+        ` ${s.title}${flags}`
+    );
+  });
+  if (queue.length > limit) console.log(`\n... and ${queue.length - limit} more.`);
+}
+
+async function cmdShow(args) {
+  const s = await resolveScenario(args, args._[1]);
+  if (args.json) return void console.log(JSON.stringify(s, null, 2));
+  printScenario(s);
+}
+
+/** Record the architect's answer: a note, or a status, or both. */
+async function cmdAnswer(args, verb) {
+  const id = args._[1];
+  if (!id) throw new Error(`${verb} expects a scenario id`);
+  const s = await resolveScenario(args, id);
+
+  const done = [];
+  if (args.message) {
+    await addNote(s.file, s.id, args.message, {
+      author: args.as ?? 'architect',
+      actor: ACTOR_ARCHITECT,
+    });
+    done.push('note written, raised @review for an agent to act on');
+  }
+
+  if (verb !== 'note') {
+    const status = verb === 'reject' ? 'derived' : verb === 'accept' ? 'accepted' : 'verified';
+    if (status === 'verified' && !args.commit) {
+      // Refused rather than defaulted. `verified` claims a person watched the software
+      // do this, and a claim with no commit behind it cannot be checked or aged.
+      throw new Error(
+        'verify expects --commit <sha>: the status records WHICH build was watched, ' +
+          'and without it the claim ages into a lie.'
+      );
+    }
+    await setStatus(s.file, s.id, status, { commit: args.commit, actor: ACTOR_ARCHITECT });
+    done.push(`status -> ${status}`);
+  } else if (!args.message) {
+    throw new Error('note expects --message "..."');
+  }
+
+  console.log(`${s.id}: ${done.join('; ')}`);
 }
 
 async function main() {
@@ -546,7 +688,30 @@ async function main() {
     return;
   }
 
+  // The instruction set, printed rather than pointed at: a harness that can run a
+  // command can absorb this without knowing where the tool is installed.
+  if (cmd === 'guide') {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const topic = args._[1];
+    const file = topic
+      ? join(here, '..', 'agents', 'skills', 'claude-code', topic, 'SKILL.md')
+      : join(here, '..', 'agents', 'README.md');
+    try {
+      console.log(await readFile(file, 'utf8'));
+    } catch {
+      throw new Error(`No guide for "${topic ?? ''}". Try: criteria-review guide`);
+    }
+    return;
+  }
+
   if (cmd === 'generate') return cmdGenerate(args);
+
+  // The conversational surface: walk, read, answer. No browser, no running server.
+  if (cmd === 'queue') return cmdQueue(args);
+  if (cmd === 'show') return cmdShow(args);
+  if (cmd === 'note' || cmd === 'accept' || cmd === 'verify' || cmd === 'reject') {
+    return cmdAnswer(args, cmd);
+  }
 
   if (cmd === 'status') return void process.exit(await cmdStatus());
   if (cmd === 'stop') return cmdStop();
