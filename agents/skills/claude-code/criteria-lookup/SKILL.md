@@ -29,7 +29,23 @@ Present what it prints, in full, as prose the architect can read without decodin
 - the Given / When / Then clauses verbatim
 - every note, with its author and date
 
-Then ask what they want to do with it. Do not assume.
+Then offer the choices as a **numbered menu**, always in the same order, so answering is a
+keypress rather than a sentence:
+
+```
+1  accept   - this is what the software should do
+2  verify   - you watched it happen
+3  reject   - send it back to derived
+4  skip     - leave it, move on
+5  stop     - end the pass
+
+...or just type what is wrong, and that becomes the note.
+```
+
+Keep the numbers stable between items. A menu whose options move is a menu that has to be read
+every time, and the whole point is that it does not.
+
+`1` may be combined with prose - "1, but the wording is loose" accepts it and writes the note.
 
 ## Their reply IS the note
 
@@ -52,14 +68,17 @@ Offer them by name, and never take one without being told to.
 
 | They say | Command | What it claims |
 |---|---|---|
-| accept / that is right / confirmed | `criteria-review accept <ID>` | This is what the software SHOULD do |
-| verify / I watched that | `criteria-review verify <ID> --commit <sha>` | A person watched the software do it |
-| send it back / not right | `criteria-review reject <ID>` | Back to derived |
+| `1`, accept, that is right | `criteria-review accept <ID>` | This is what the software SHOULD do |
+| `2`, verify, I watched that | `criteria-review verify <ID>` | A person watched the software do it |
+| `3`, reject, not right | `criteria-review reject <ID>` | Back to derived |
 
-**Verify is the one to be careful with.** It claims a person watched the software do this, at a
-named commit. Do not offer it as a default option in conversation, and never take it because the
-scenario looks plausible. Offer it when they say they watched it, and get the commit - the command
-refuses without one, deliberately, because a verification with nothing behind it ages into a lie.
+**Verify claims a person watched the software do this, at a named build.** The commit is resolved
+automatically from the project being reviewed, so nobody has to go and find a hash - **say which
+commit was recorded** when you report it back, and say so plainly if the tree was dirty, because
+then the commit does not contain what was watched.
+
+Never take verify because a scenario looks plausible. It is the one status that asserts something
+about a person's own actions, and only they can say it happened.
 
 Accepting and noting are independent: `--message` may be passed alongside a status move, and both
 are recorded.

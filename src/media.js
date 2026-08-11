@@ -80,6 +80,34 @@ export async function repoName(projectPath, override) {
  * their directory names carry no information; the branch names say immediately which
  * is the work in progress and which is the baseline.
  */
+/**
+ * The commit a project is sitting on, short form, plus whether the tree is dirty.
+ *
+ * `verified` records WHICH build a person watched, and the honest answer is almost always
+ * the checkout they were looking at. Resolving it here rather than asking is the difference
+ * between a status a reviewer can give in one word and one that requires them to go and
+ * find a hash - and a verification that is awkward to record is one that stops being
+ * recorded. Dirty is reported rather than hidden, because a verification against uncommitted
+ * work names a commit that does not contain what was watched.
+ */
+export async function headCommit(projectPath) {
+  try {
+    const { stdout } = await run('git', ['-C', projectPath, 'rev-parse', '--short', 'HEAD']);
+    const sha = stdout.trim();
+    if (!sha) return null;
+    let dirty = false;
+    try {
+      const { stdout: st } = await run('git', ['-C', projectPath, 'status', '--porcelain']);
+      dirty = st.trim().length > 0;
+    } catch {
+      // Unable to tell; better to report the commit than nothing.
+    }
+    return { sha, dirty };
+  } catch {
+    return null;
+  }
+}
+
 export async function branchName(projectPath) {
   try {
     const { stdout } = await run('git', ['-C', projectPath, 'rev-parse', '--abbrev-ref', 'HEAD']);

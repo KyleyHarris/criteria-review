@@ -17,7 +17,13 @@ import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
 import { orderQueue } from '../public/queue-order.js';
 import { buildModel, RENDERERS } from '../src/emit.js';
 import { scanAll as scanAllRoots } from '../src/scan.js';
-import { resolveMediaRoot, masterVideoDir, MEDIA_CONFIG, branchName } from '../src/media.js';
+import {
+  resolveMediaRoot,
+  masterVideoDir,
+  MEDIA_CONFIG,
+  branchName,
+  headCommit,
+} from '../src/media.js';
 
 const CONFIG_DIR = join(homedir(), '.config', 'criteria-review');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
@@ -451,15 +457,24 @@ async function cmdAnswer(args, verb) {
 
   if (verb !== 'note') {
     const status = verb === 'reject' ? 'derived' : verb === 'accept' ? 'accepted' : 'verified';
-    if (status === 'verified' && !args.commit) {
-      // Refused rather than defaulted. `verified` claims a person watched the software
-      // do this, and a claim with no commit behind it cannot be checked or aged.
-      throw new Error(
-        'verify expects --commit <sha>: the status records WHICH build was watched, ' +
-          'and without it the claim ages into a lie.'
-      );
+    let commit = args.commit;
+    if (status === 'verified' && !commit) {
+      // Resolved from the project being reviewed, not asked for. `verified` records WHICH
+      // build was watched, and the honest answer is the checkout the reviewer was looking
+      // at. Making them find a hash is how a verification stops being recorded at all.
+      const head = await headCommit(s.root);
+      if (!head) {
+        throw new Error(
+          `Cannot resolve a commit for ${s.project}: it is not a git checkout. ` +
+            'Pass --commit <sha>, because verified records which build was watched.'
+        );
+      }
+      commit = head.sha;
+      // Stated rather than hidden: a verification taken against uncommitted work names a
+      // commit that does not contain what was watched.
+      done.push(head.dirty ? `commit ${commit} (WORKING TREE DIRTY)` : `commit ${commit}`);
     }
-    await setStatus(s.file, s.id, status, { commit: args.commit, actor: ACTOR_ARCHITECT });
+    await setStatus(s.file, s.id, status, { commit, actor: ACTOR_ARCHITECT });
     done.push(`status -> ${status}`);
   } else if (!args.message) {
     throw new Error('note expects --message "..."');

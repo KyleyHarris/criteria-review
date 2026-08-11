@@ -1,6 +1,6 @@
 {
   "name": "criteria-review",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Review acceptance criteria across projects: surface derived scenarios needing approval, annotate them, and write the outcome back into the source documents.",
   "license": "MIT",
