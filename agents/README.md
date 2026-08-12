@@ -85,6 +85,16 @@ discussion and hands the item back for re-review.
 **Never clear `@review` by hand.** It is the architect's request, and `handled` is the only thing
 entitled to retire it.
 
+### A note on invoking it
+
+Commands here use `npx criteria-review`, which resolves a project's pinned copy first and works
+when there is no package context at all - the situation an agent is usually in.
+
+**A GATE must not use `npx`.** It fetches from the registry when the package is absent, which puts
+a network download inside the check and lets a missing dependency read as a pass. A gate resolves
+`node_modules/.bin/criteria-review`, falls back to `PATH`, and fails when neither exists. See
+`docs/standard/emit-contract.md`.
+
 ### And one standing rule
 
 **A session that edits an acceptance document regenerates before running tests.** Otherwise the

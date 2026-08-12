@@ -46,6 +46,33 @@ Three places, each doing a different job:
 tool is needed to regenerate and to verify, never to compile. A build that could not run without
 a locally-installed personal tool would be an unacceptable dependency for a project.
 
+### Resolving the binary in a gate, which is NOT `npx`
+
+A gate must resolve the project's own pinned copy, fall back to whatever is on `PATH`, and
+**fail loudly when neither exists**:
+
+```sh
+BIN="$(git rev-parse --show-toplevel)/<pkg-dir>/node_modules/.bin/criteria-review"
+[ -x "$BIN" ] || BIN="$(command -v criteria-review || true)"
+[ -n "$BIN" ] || { echo "criteria-review not installed; the criteria gate cannot run" >&2; exit 1; }
+"$BIN" generate . --out ... --check
+```
+
+**Do not use `npx` here.** It fetches from the registry when the package is absent, which puts a
+network download inside the gate and lets a missing devDependency read as a pass - the check
+appears to run, against a version nobody pinned. `npx` is right for ad-hoc use and for an agent
+that may have no package context at all; it is wrong for anything whose job is to fail.
+
+The same reason rules out a bare `command -v criteria-review` guard: a project that pinned the
+tool as a devDependency has no such binary on `PATH`, so the guard skips the gate on exactly the
+machine that configured it correctly.
+
+**Report the version the gate ran**, so a failure names it:
+
+```sh
+"$BIN" --version    # criteria-review 0.3.2 (standard 1.1.2)
+```
+
 ## What is emitted
 
 Only scenarios that can be cited. A scenario with no id or no status is excluded, because

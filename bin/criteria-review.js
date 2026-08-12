@@ -17,6 +17,7 @@ import { ejectStandard } from '../src/standard.js';
 import { isUntracked, needsReview } from '../src/parse.js';
 import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
 import { orderQueue } from '../public/queue-order.js';
+import { STANDARD_VERSION } from '../src/version.js';
 import { buildModel, RENDERERS } from '../src/emit.js';
 import { scanAll as scanAllRoots } from '../src/scan.js';
 import {
@@ -200,6 +201,7 @@ function usage() {
   criteria-review flag <ID>           mark it LOOK NOW
   criteria-review unflag <ID>         clear LOOK NOW
   criteria-review standard eject <dir> copy the standard into this project to own it
+  criteria-review version             package and standard version (also --version)
   criteria-review guide [skill]       print the agent instruction set
   criteria-review queue               what needs a decision here, most important first
                                         --limit <n>       how many to list (default 10)
@@ -561,6 +563,19 @@ async function main() {
 
   if (cmd === 'help' || args._.includes('--help') || args._.includes('-h')) return usage();
 
+  // A gate pins an exact version, so it must be able to report which version ran. Without
+  // this an unrecognised flag fell through to STARTING THE REVIEW SERVER and died on
+  // EADDRINUSE - a version query that boots a web server is the wrong answer twice over.
+  if (cmd === 'version' || args._.includes('--version') || args._.includes('-v')) {
+    const pkg = JSON.parse(
+      await readFile(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8')
+    );
+    // Both numbers, because they answer different questions: the package is what you
+    // pinned and downloaded, the standard is what your criteria conform to.
+    console.log(`criteria-review ${pkg.version} (standard ${STANDARD_VERSION})`);
+    return;
+  }
+
   if (cmd === 'add') {
     const path = resolve(args._[1] ?? process.cwd());
     const name = args._[2] ?? basename(path);
@@ -828,6 +843,15 @@ async function main() {
   const roots = await rootsFrom(args);
 
   if (cmd === 'list') return cmdList(roots);
+
+  // Anything that looks like a command or a flag but was not recognised is an error, not
+  // an instruction to open the review UI. The old fallthrough turned a typo - or a flag a
+  // newer version understands - into a server start, which in a pipeline is a hang and on
+  // a desk is EADDRINUSE from the server already running.
+  if (cmd !== undefined || args._.some((a) => a.startsWith('-'))) {
+    const what = cmd ?? args._.find((a) => a.startsWith('-'));
+    throw new Error(`unknown command "${what}". Run: criteria-review help`);
+  }
 
   const cfg = await loadConfig();
   const mediaRoot = await resolveMediaRoot(cfg.mediaRoot);
