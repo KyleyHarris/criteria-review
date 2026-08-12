@@ -10,6 +10,38 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { parseDocument } from './parse.js';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const run = promisify(execFile);
+
+/**
+ * The criteria documents this branch has touched since a base ref.
+ *
+ * ONE MECHANISM, TWO AUDIENCES. A developer asks "what am I working on" and passes
+ * their trunk; a pipeline asks "what did this sprint add" and passes the last release
+ * tag. Both are a diff against a base, so there is no second concept to learn and no
+ * second thing to keep correct.
+ *
+ * Returns null rather than an empty set when the diff cannot be taken - not a git
+ * checkout, unknown ref - so the caller can say so instead of silently reporting that
+ * nothing changed, which would look exactly like a clean branch.
+ */
+export async function changedSince(root, base) {
+  try {
+    const { stdout } = await run('git', ['-C', root, 'diff', '--name-only', `${base}...HEAD`]);
+    return new Set(
+      stdout
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map(toPosixPath)
+        .filter(isCriteriaPath)
+    );
+  } catch {
+    return null;
+  }
+}
 
 /**
  * A repo-relative path with forward slashes, whatever platform produced it.

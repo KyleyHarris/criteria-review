@@ -255,11 +255,11 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
       // a rule takes that to the repository that owns it, where it goes through
       // review like any other change.
       if (req.method === 'GET' && url.pathname === '/api/standard') {
-        return json(res, 200, { docs: await listStandardDocs() });
+        return json(res, 200, { docs: await listStandardDocs(roots) });
       }
 
       if (req.method === 'GET' && url.pathname === '/api/standard/doc') {
-        const doc = await readStandardDoc(url.searchParams.get('name') ?? '');
+        const doc = await readStandardDoc(url.searchParams.get('name') ?? '', roots);
         // 404 rather than 400 for a name that is not in the listing, including a
         // traversal attempt: the honest answer is that no such document exists here.
         if (!doc) return json(res, 404, { error: 'no such document' });

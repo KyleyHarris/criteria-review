@@ -257,3 +257,54 @@ downloaded.
 
 **Consequence.** Bumping the package version is part of cutting a release rather than an
 afterthought, and a release note that does not name its standard version is incomplete.
+
+---
+
+## D-009. Project settings and developer settings are different files
+
+**Date:** 2026-08-12
+**Status:** decided
+
+`criteria.json` is committed and describes the project. `criteria.local.json` is gitignored and
+describes one machine. Precedence is flags, local, project.
+
+The property that matters: **a pipeline sets nothing**, so its behaviour is whatever is committed
+and is therefore reviewable in a pull request rather than configured somewhere nobody reads.
+
+**A local file may not weaken a gate.** It may change where a developer's own output lands
+(`videoDir`, `publish.target`) and what subset they walk (`since`, `limit`). It may not redirect
+`emit.out`, because the artefact is committed and `--check` compares that exact path, so an
+override would have one machine checking a file nobody else has - passing locally while the build
+fails. It may not set `standard`, because two people on one project reading different rules is a
+fork rather than a preference.
+
+Keys outside the allowlist are **refused by name**, not ignored. A setting that silently does
+nothing leaves its author believing it took effect, which is the worse of the two failures.
+
+**Discovery stays out of configuration.** Criteria are still found by convention, because a
+missing config file would mean silent zero coverage. Everything settable here fails loudly at the
+moment it is asked for, which is what makes it safe to declare.
+
+---
+
+## D-010. A team can own the standard; they cannot own the contract
+
+**Date:** 2026-08-12
+**Status:** decided
+
+The shipped standard is one opinion, and this tool is now public. A team adopting it must be able
+to make the rules theirs: `criteria-review standard eject <dir>` copies the documents into the
+project, and `criteria.json` points at them. Their copy is what the reading tab shows.
+
+The shipped standard stays visible beside it as a labelled reference unless they turn it off.
+That is the answer to the mirror problem D-001 exists to prevent: a fork that hides its original
+cannot tell when the original moved, and keeping it on screen makes divergence an observation
+rather than a discovery on some later upgrade.
+
+**What cannot be forked by editing prose:** the status vocabulary, the tag grammar, and the
+emitted shape. Those are enforced in code and versioned. A copy that disagrees with them is wrong
+rather than authoritative, and the eject says so, because otherwise the first thing a new adopter
+does is edit the status list and then file a bug when nothing changes.
+
+A team that genuinely needs different statuses needs a change to the tool, which should come back
+as a pull request rather than diverge silently in a copy.

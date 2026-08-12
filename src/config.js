@@ -1,0 +1,104 @@
+// Project and developer settings.
+//
+// TWO FILES, AND THE DIFFERENCE BETWEEN THEM IS THE WHOLE DESIGN.
+//
+//   criteria.json        committed. What this project is, for everyone including CI.
+//   criteria.local.json  gitignored. Where MY output goes and what subset I am working on.
+//
+// CI sets nothing and therefore runs on what is committed, which is what makes its
+// behaviour reviewable in a pull request rather than configured on a machine nobody
+// reads.
+//
+// WHAT LOCAL SETTINGS MAY NOT DO. A developer may change where their own output lands
+// and which subset they walk. They may not weaken a gate. `--check` means the same thing
+// on every machine, there is no local strictness dial and no local ignore list, because
+// the failure mode is a machine that passes while CI fails - or a gate quietly relaxed on
+// the one machine where anyone would have noticed. Keys outside the allowlist are refused
+// by name rather than ignored: a setting that silently does nothing is worse than one that
+// is rejected, because the author believes it took effect.
+//
+// FINDING CRITERIA IS NOT CONFIGURABLE, deliberately. That stays convention-based (see
+// scan.js): a missing config file would mean silent zero coverage, and silence is the
+// failure this whole system exists to remove. Everything settable here fails loudly at the
+// moment it is asked for.
+
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+
+export const PROJECT_CONFIG = 'criteria.json';
+export const LOCAL_CONFIG = 'criteria.local.json';
+
+/** Everything a project may declare. Anything else is a typo or a misunderstanding. */
+const PROJECT_KEYS = new Set(['emit', 'videoDir', 'publish', 'standard', 'extraDocs']);
+
+/**
+ * What a developer's own file may override.
+ *
+ * `emit.out` is deliberately absent: the generated artefact is committed and `--check`
+ * compares that exact path, so a local override would make one machine check a file
+ * nobody else has. `standard` is absent for the same class of reason - two people on one
+ * project reading different rules is not a preference, it is a fork.
+ */
+const LOCAL_KEYS = new Set(['since', 'limit', 'videoDir', 'publish']);
+
+const REFUSED_HINT = {
+  emit: 'the generated artefact is committed and --check compares that path; a local override would check a file nobody else has',
+  standard: 'two people on one project reading different rules is a fork, not a preference',
+  extraDocs: 'documentation shown to the team belongs to the project, not to one machine',
+};
+
+async function readJson(file) {
+  try {
+    return { found: true, value: JSON.parse(await readFile(file, 'utf8')) };
+  } catch (err) {
+    if (err.code === 'ENOENT') return { found: false, value: {} };
+    throw new Error(`${file}: ${err.message}`);
+  }
+}
+
+function rejectUnknown(value, allowed, file, hints = {}) {
+  for (const key of Object.keys(value)) {
+    if (allowed.has(key)) continue;
+    const why = hints[key] ? ` - ${hints[key]}` : '';
+    throw new Error(
+      `${file}: "${key}" is not settable here${why}. Allowed: ${[...allowed].sort().join(', ')}`
+    );
+  }
+}
+
+/**
+ * Resolve a project's settings, developer file layered over the committed one.
+ *
+ * Returns defaults when neither exists, so every caller can read the result without
+ * asking whether a project has been configured at all.
+ */
+export async function loadSettings(root) {
+  const project = await readJson(join(root, PROJECT_CONFIG));
+  rejectUnknown(project.value, PROJECT_KEYS, PROJECT_CONFIG);
+
+  const local = await readJson(join(root, LOCAL_CONFIG));
+  rejectUnknown(local.value, LOCAL_KEYS, LOCAL_CONFIG, REFUSED_HINT);
+
+  const p = project.value;
+  const l = local.value;
+
+  return {
+    // Where the emitted scenario module goes. Project-only, on purpose.
+    emit: { out: p.emit?.out ?? null, format: p.emit?.format ?? null },
+    // Recordings. A developer's own runs land wherever they want them.
+    videoDir: l.videoDir ?? p.videoDir ?? null,
+    publish: { target: l.publish?.target ?? p.publish?.target ?? null },
+    // The standard this project holds itself to. A company adopting the tool ejects a
+    // copy and edits it; the shipped one stays visible beside it unless they say not.
+    standard: {
+      path: p.standard?.path ?? null,
+      showReference: p.standard?.showReference !== false,
+    },
+    extraDocs: p.extraDocs ?? null,
+    // Default scope for a review pass. A developer walks their branch; CI sets nothing
+    // and walks everything.
+    since: l.since ?? null,
+    limit: l.limit ?? null,
+    sources: { project: project.found, local: local.found },
+  };
+}

@@ -11,7 +11,9 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, basename } from 'node:path';
 import { createReviewServer } from '../src/server.js';
-import { scanAll } from '../src/scan.js';
+import { scanAll, changedSince } from '../src/scan.js';
+import { loadSettings, PROJECT_CONFIG } from '../src/config.js';
+import { ejectStandard } from '../src/standard.js';
 import { isUntracked, needsReview } from '../src/parse.js';
 import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
 import { orderQueue } from '../public/queue-order.js';
@@ -62,6 +64,9 @@ function parseArgs(argv) {
     else if (a === '--json') args.json = true;
     // Widen past the tree the session is in. See scopedRoots.
     else if (a === '--all') args.all = true;
+    // One mechanism, two audiences: a developer passes their trunk, a pipeline passes
+    // the last release tag. See changedSince.
+    else if (a === '--since') args.since = argv[++i];
     else if (a === '--format') args.format = argv[++i];
     // Verify rather than write: the gate's half of generation. See cmdGenerate.
     else if (a === '--check') args.check = true;
@@ -194,10 +199,12 @@ function usage() {
   criteria-review focus <ID>          jump every open page to a scenario
   criteria-review flag <ID>           mark it LOOK NOW
   criteria-review unflag <ID>         clear LOOK NOW
+  criteria-review standard eject <dir> copy the standard into this project to own it
   criteria-review guide [skill]       print the agent instruction set
   criteria-review queue               what needs a decision here, most important first
                                         --limit <n>       how many to list (default 10)
                                         --all             every registered project
+                                        --since <ref>     only what changed since a ref
                                         --json            machine-readable
   criteria-review show <ID> [proj]    one scenario in full, with its notes
   criteria-review note <ID> [proj]    write the architect's note (raises @review):
@@ -274,7 +281,12 @@ async function cmdList(roots) {
  * registered anything.
  */
 async function cmdGenerate(args) {
-  const out = args.out;
+  const named = args._[1];
+  const settingsRoot = named ? resolve(named) : (await scopedRoots(args))[0]?.path ?? process.cwd();
+  const settings = await loadSettings(settingsRoot);
+  // Declared in the project rather than passed every time, so the same command works
+  // from a package script, a gate and a pipeline without three different invocations.
+  const out = args.out ?? settings.emit.out;
   if (!out) {
     throw new Error(
       'generate expects --out <path>, e.g.\n' +
@@ -283,14 +295,13 @@ async function cmdGenerate(args) {
     );
   }
 
-  const format = args.format ?? (out.endsWith('.json') ? 'json' : 'ts');
+  const format = args.format ?? settings.emit.format ?? (out.endsWith('.json') ? 'json' : 'ts');
   const render = RENDERERS[format];
   if (!render) throw new Error(`unknown --format ${format}. Expected: ${Object.keys(RENDERERS).join(', ')}`);
 
   // A named project, else a path, else the registered set. Generation is per consumer:
   // emitting two projects' scenarios into one artefact would let one project's rename
   // break another's build.
-  const named = args._[1];
   const roots = named
     ? [{ name: basename(resolve(named)), path: resolve(named) }]
     : await rootsFrom(args);
@@ -437,14 +448,43 @@ function printScenario(s, { index, total } = {}) {
   }
 }
 
+/**
+ * Narrow a scan to the documents a branch has touched, when asked.
+ *
+ * Reports when the diff could not be taken rather than returning nothing: an empty
+ * result and a failed diff look identical from the outside, and the second one silently
+ * tells a reviewer their branch is clean.
+ */
+async function narrowToChanged(results, roots, base) {
+  if (!base) return { scenarios: results.flatMap((r) => r.scenarios), scope: null };
+  const kept = [];
+  const unavailable = [];
+  for (const r of results) {
+    const root = roots.find((x) => x.name === r.project);
+    const changed = await changedSince(root?.path ?? r.root, base);
+    if (changed === null) {
+      unavailable.push(r.project);
+      continue;
+    }
+    kept.push(...r.scenarios.filter((s) => changed.has(s.source)));
+  }
+  return { scenarios: kept, scope: { base, unavailable } };
+}
+
 async function cmdQueue(args) {
   const roots = await scopedRoots(args);
+  const settings = await loadSettings(roots[0]?.path ?? process.cwd()).catch(() => null);
+  const since = args.since ?? settings?.since ?? null;
   const { results } = await scanAllRoots(roots);
-  const all = results.flatMap((r) => r.scenarios);
+  const { scenarios: all, scope } = await narrowToChanged(results, roots, since);
+  for (const project of scope?.unavailable ?? []) {
+    // Never silent: a project whose diff failed is not a project with nothing to review.
+    console.error(`warning: cannot diff ${project} against ${scope.base}; it is not shown`);
+  }
   // Same ordering the page uses, imported rather than reimplemented: a walk that
   // disagreed with the screen would leave the reviewer unable to tell which was right.
   const queue = orderQueue(all.filter((s) => needsReview(s)));
-  const limit = Number(args.limit ?? 10);
+  const limit = Number(args.limit ?? settings?.limit ?? 10);
 
   if (args.json) {
     console.log(JSON.stringify({ total: queue.length, items: queue.slice(0, limit) }, null, 2));
@@ -452,7 +492,8 @@ async function cmdQueue(args) {
   }
   console.log(
     `${queue.length} scenario(s) still need a decision in ` +
-      `${roots.map((r) => r.name).join(', ')}. Most important first:\n`
+      `${roots.map((r) => r.name).join(', ')}` +
+      `${since ? `, changed since ${since}` : ''}. Most important first:\n`
   );
   queue.slice(0, limit).forEach((s, i) => {
     const flags = (s.flags ?? []).includes('looknow') ? '  LOOK NOW' : '';
@@ -746,6 +787,24 @@ async function main() {
     } catch {
       throw new Error(`No guide for "${topic ?? ''}". Try: criteria-review guide`);
     }
+    return;
+  }
+
+  // Take a copy of the standard so a team can own it. The shipped one stays visible
+  // beside theirs unless they turn it off, which is what makes divergence noticeable
+  // when the package is upgraded.
+  if (cmd === 'standard' && args._[1] === 'eject') {
+    const target = args._[2];
+    if (!target) throw new Error('standard eject expects a directory, e.g. docs/qa-standard');
+    const r = await ejectStandard(resolve(target));
+    console.log(`copied ${r.files} documents (standard ${r.version}) to ${target}`);
+    console.log(
+      `Now declare it, so this is what your team sees:\n` +
+        `  ${PROJECT_CONFIG}: {"standard":{"path":"${target}"}}\n` +
+        `The shipped standard stays visible as a reference; add "showReference": false to hide it.\n` +
+        `Editing these documents does not change what the tool ENFORCES - the status\n` +
+        `vocabulary, tag grammar and emitted shape are code, and a copy that disagrees is wrong.`
+    );
     return;
   }
 
