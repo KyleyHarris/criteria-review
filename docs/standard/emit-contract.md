@@ -11,13 +11,13 @@ bump rather than quietly. See `../decisions.md` D-003, D-004, D-005.
 ```bash
 # Write the artefact. The consumer's package script is where this lives, so it travels
 # with the repository and works on a machine that has never registered anything.
-criteria-review generate . --out tests/e2e/support/scenarios.generated.ts
+npx criteria-review generate . --out tests/e2e/support/scenarios.generated.ts
 
 # Verify it matches the documents, change nothing, exit non-zero if it does not.
-criteria-review generate . --out tests/e2e/support/scenarios.generated.ts --check
+npx criteria-review generate . --out tests/e2e/support/scenarios.generated.ts --check
 
 # The neutral artefact, for a consumer that is not TypeScript.
-criteria-review generate . --out build/scenarios.json --format json
+npx criteria-review generate . --out build/scenarios.json --format json
 ```
 
 `--format` defaults from the output extension.

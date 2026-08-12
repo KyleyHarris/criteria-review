@@ -15,14 +15,14 @@ The whole protocol is four ideas. Everything in `skills/` is these, spelled out 
 
 ### 1. The queue is ordered, and the order is not yours to change
 
-`criteria-review queue` returns what still needs a human decision, most important first: flagged
+`npx criteria-review queue` returns what still needs a human decision, most important first: flagged
 items, then grouped by document with the riskiest documents leading. The page uses the same
 ordering from the same module. Reordering it in conversation leaves the architect looking at two
 different "most important" and unable to tell which is right.
 
 ### 2. Show the scenario, do not summarise it
 
-`criteria-review show <ID>` prints the title, status, persona, flags, intent, the Given/When/Then
+`npx criteria-review show <ID>` prints the title, status, persona, flags, intent, the Given/When/Then
 clauses, and every note. Present all of it, including **an intent line that says it is missing**.
 A scenario whose intent was never sourced is the most dangerous kind, because a test citing it can
 never disagree with the software, and omitting the line makes it look fine.
@@ -35,15 +35,15 @@ requirement.
 Prose in reply to a presented scenario is a note, written verbatim:
 
 ```bash
-criteria-review note <ID> --message "<their words>"
+npx criteria-review note <ID> --message "<their words>"
 ```
 
 Status moves are separate, named, and never taken unasked:
 
 ```bash
-criteria-review accept <ID>                    # what the software SHOULD do
-criteria-review verify <ID> --commit <sha>     # a person watched it happen
-criteria-review reject <ID>                    # back to derived
+npx criteria-review accept <ID>                    # what the software SHOULD do
+npx criteria-review verify <ID> --commit <sha>     # a person watched it happen
+npx criteria-review reject <ID>                    # back to derived
 ```
 
 `verify` resolves the commit from the project under review and reports which one it recorded, so a
@@ -77,9 +77,9 @@ not in a session that can end.
 | `@looknow` | an agent, via `ask` or `flag` | the architect must look at this |
 | `@review` | the architect writing a note | an agent must act on what they wrote |
 
-An agent asks with `criteria-review ask <ID> --message "..."`, which puts the question beside the
+An agent asks with `npx criteria-review ask <ID> --message "..."`, which puts the question beside the
 scenario rather than in a transcript that scrolls away. It reads replies with
-`criteria-review notes`, acts, then runs `criteria-review handled <ID>`, which clears the
+`npx criteria-review notes`, acts, then runs `npx criteria-review handled <ID>`, which clears the
 discussion and hands the item back for re-review.
 
 **Never clear `@review` by hand.** It is the architect's request, and `handled` is the only thing

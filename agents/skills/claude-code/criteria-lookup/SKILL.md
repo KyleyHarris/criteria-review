@@ -17,7 +17,7 @@ open page updates itself, because the server watches the criteria directories.
 ## Looking one thing up
 
 ```bash
-criteria-review show <ID> [project]
+npx criteria-review show <ID> [project]
 ```
 
 Present what it prints, in full, as prose the architect can read without decoding:
@@ -55,7 +55,7 @@ every time, and the whole point is that it does not.
 When the architect answers with prose rather than a command, that prose is the note. Write it:
 
 ```bash
-criteria-review note <ID> [project] --message "<their words>"
+npx criteria-review note <ID> [project] --message "<their words>"
 ```
 
 **Use their words, not a summary.** The note is sourced intent, which is the one thing that cannot
@@ -119,7 +119,7 @@ If the finding is worth keeping - a real contradiction, or a clause nobody can t
 record it. It is the agent's finding, so it goes in as the agent:
 
 ```bash
-criteria-review ask <ID> [project] --message "DRIFT: <clause> is contradicted by <file:line>: <what the code does>" --as <who>
+npx criteria-review ask <ID> [project] --message "DRIFT: <clause> is contradicted by <file:line>: <what the code does>" --as <who>
 ```
 
 That raises `@looknow` rather than `@review`, which is correct: the finding is a question for the
@@ -138,7 +138,7 @@ up. Accepting it is correct even though the software fails it, because `accepted
 intent, not about the implementation:
 
 ```bash
-criteria-review accept <ID> --message "WRITE THE CODE TO MATCH: <what the software does instead, in their words>"
+npx criteria-review accept <ID> --message "WRITE THE CODE TO MATCH: <what the software does instead, in their words>"
 ```
 
 Then say plainly how the gap stays visible: a journey citing this scenario now goes **red**, which
@@ -151,7 +151,7 @@ inferred, or it describes an intention nobody holds. Send it back to `derived`, 
 what that status means - written up from the delivered software, describing what it appears to do:
 
 ```bash
-criteria-review reject <ID> --message "WRITE THE TEST TO MATCH THE CODE: <what the software actually does, in their words>"
+npx criteria-review reject <ID> --message "WRITE THE TEST TO MATCH THE CODE: <what the software actually does, in their words>"
 ```
 
 Both raise `@review`, which hands the item to an agent. Report which one was recorded and what
@@ -173,7 +173,7 @@ mid-pass is how a review of seventy-five scenarios becomes an afternoon on the f
 ## Walking the queue
 
 ```bash
-criteria-review queue --limit 10
+npx criteria-review queue --limit 10
 ```
 
 Ordered exactly as the page orders it: flagged items first, then grouped by document with the
@@ -215,11 +215,11 @@ If **you** need the architect's ruling on something and they are not in the conv
 question belongs beside the scenario rather than in a transcript that scrolls away:
 
 ```bash
-criteria-review ask <ID> [project] --message "the question" --as <who>
+npx criteria-review ask <ID> [project] --message "the question" --as <who>
 ```
 
 That raises `@looknow` and puts the question in their queue. Read what came back with
-`criteria-review notes`, act, then `criteria-review handled <ID>` to hand the item back for
+`npx criteria-review notes`, act, then `npx criteria-review handled <ID>` to hand the item back for
 re-review.
 
 ## Ambiguity
@@ -230,7 +230,7 @@ exists to prevent.
 
 ## Related
 
-- `criteria-review guide` and the standard in `docs/standard/` for what the statuses mean and how
+- `npx criteria-review guide` and the standard in `docs/standard/` for what the statuses mean and how
   criteria are written.
-- The visual tool (`criteria-review here`) for a long pass beside the recordings, which is still
+- The visual tool (`npx criteria-review here`) for a long pass beside the recordings, which is still
   the better surface when there is video to watch.

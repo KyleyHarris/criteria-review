@@ -33,7 +33,7 @@ Everything else in the tool exists to make one of those three steps cheaper.
 From inside any working tree:
 
 ```bash
-criteria-review here
+npx criteria-review here
 ```
 
 That registers the tree, starts the server if it is down, and opens the page on this project.
@@ -43,7 +43,7 @@ repository without checking anything first.
 Give it a name when the directory name is not distinctive:
 
 ```bash
-criteria-review here . playwright-worktree
+npx criteria-review here . playwright-worktree
 ```
 
 Several trees can be registered at once, **including two checkouts of the same repository**. A
@@ -112,19 +112,19 @@ The loop closes like this, and each step hands the item to exactly one side:
 
 1. A session asks a question beside the scenario it is about:
    ```bash
-   criteria-review ask CO-TYPES-006 myproject --message "Blank cell, or the word none?" --as claude
+   npx criteria-review ask CO-TYPES-006 myproject --message "Blank cell, or the word none?" --as claude
    ```
    That writes the question as a note and raises `@looknow`.
 2. You answer in the same pane by writing a note. That raises `@review` and clears `@looknow`.
-3. The session reads it with `criteria-review notes`, acts, and runs
-   `criteria-review handled CO-TYPES-006`, which removes the discussion and raises `@looknow` so
+3. The session reads it with `npx criteria-review notes`, acts, and runs
+   `npx criteria-review handled CO-TYPES-006`, which removes the discussion and raises `@looknow` so
    the item comes back to you for re-review.
 
 **Acting on a flagged scenario clears the flag.** Accepting it, marking it verified, sending it
 back, writing a note - each one is you looking, so none of them leaves a badge behind demanding
 attention you have already given.
 
-There is also `criteria-review push`, which changes what an open page is showing and never
+There is also `npx criteria-review push`, which changes what an open page is showing and never
 touches disk. Use it when someone is at the screen; use a flag when the finding should wait for
 the next review pass.
 
@@ -133,8 +133,8 @@ the next review pass.
 The last step, and the one that stops the criteria and the tests drifting apart:
 
 ```bash
-criteria-review generate . --out tests/e2e/support/scenarios.generated.ts
-criteria-review generate . --out tests/e2e/support/scenarios.generated.ts --check
+npx criteria-review generate . --out tests/e2e/support/scenarios.generated.ts
+npx criteria-review generate . --out tests/e2e/support/scenarios.generated.ts --check
 ```
 
 A journey's step names are supposed to be the scenario's own Given/When/Then wording. Typing
@@ -152,10 +152,10 @@ Full detail in **The emit contract**, and the step-by-step in **Adopting the sta
 ## Housekeeping
 
 ```bash
-criteria-review status      # exits 1 when down, 0 when up
-criteria-review list        # a summary in the terminal, touches nothing
-criteria-review projects    # what is registered, and where
-criteria-review stop | restart
+npx criteria-review status      # exits 1 when down, 0 when up
+npx criteria-review list        # a summary in the terminal, touches nothing
+npx criteria-review projects    # what is registered, and where
+npx criteria-review stop | restart
 ```
 
 The server exits on its own after two hours with no page open, so there is nothing to remember to
