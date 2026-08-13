@@ -134,30 +134,45 @@ not.
 
 ## What is here
 
-They are one loop, not six tools. The review produces work orders - *write the code to match
-this criterion*, or *write the test to match the existing code* - and the skills are what
-execute them.
+**Work runs in two directions, and the skills split on that line.** Confusing them is the
+mistake worth avoiding: one starts from what somebody wanted, the other from what the software
+already does.
 
 ```
-backfill  ->  criteria + INFERRED intent, from documents and code
-                  |
-plan      ->  the scenarios a task covers
-                  |
-lookup    ->  the architect confirms, corrects, or rejects
-                  |
-        +---------+---------+
-        |                   |
-     test                develop
- "write the test"     "write the code"
-        |                   |
-        +---------+---------+
-                  |
-              bundle  ->  the evidence
+FORWARD - there is intent, the software does not exist yet
+
+  architect  ->  intake, tier 1 spec + tier 2 shortlist, brief, declaration
+                     |
+  plan       ->  the scenarios a task covers
+                     |
+       +-------------+-------------+
+       |                           |
+    test                        develop
+"write the test"            "write the code"
+       |                           |
+       +-------------+-------------+
+                     |
+  lookup     ->  a person confirms, corrects, rejects
+                     |
+  bundle     ->  the evidence
+
+
+REVERSE - the software exists, nothing was written down
+
+  backfill   ->  criteria + characterisation journeys, from OBSERVATION
+                 intent inferred, nothing confirmed
+                     |
+  lookup     ->  a person verifies it, and the disagreements are the findings
 ```
+
+In the forward direction a test that disagrees with its criterion is a defect in the software.
+In the reverse direction the criterion came from the behaviour, so a disagreement means it was
+observed wrongly. Same artefacts, opposite meaning.
 
 | Skill | For |
 |---|---|
-| [`criteria-backfill`](skills/claude-code/criteria-backfill/SKILL.md) | Writing criteria for software that already exists: investigate an area, recommend the file, ids and scenarios, mark unsourced intent `INFERRED` |
+| [`criteria-architect`](skills/claude-code/criteria-architect/SKILL.md) | **Forward.** Vet the request, design the tier 1 spec and tier 2 shortlist, write the brief, save the declaration where the team takes work from |
+| [`criteria-backfill`](skills/claude-code/criteria-backfill/SKILL.md) | **Reverse.** Reverse engineer a legacy area into criteria and characterisation journeys from observation, intent inferred and unconfirmed |
 | [`criteria-plan`](skills/claude-code/criteria-plan/SKILL.md) | Turning a task into a working list of scenario ids: ask, verify, prepare, then act |
 | [`criteria-lookup`](skills/claude-code/criteria-lookup/SKILL.md) | Looking a scenario up and answering it in conversation, and walking the queue one at a time |
 | [`criteria-test`](skills/claude-code/criteria-test/SKILL.md) | Building the journey for a criterion, learning the behaviour by driving the running app |
@@ -175,8 +190,10 @@ having:
   intent. Neither is an agent's to make, and least of all about its own work.
 - **Never invent intent.** Cite a source or write `INFERRED`. Code contains what a system does,
   never why anyone wanted it.
-- **Never let backfill write the journey.** A test written from the same reading as the
-  criterion agrees with it by construction and can never disagree with the software.
+- **Know which direction you are in.** A characterisation journey from `backfill` pins what the
+  software does and proves nothing about whether it is right; a journey from `criteria-test`
+  proves a criterion somebody chose. Reporting the first as if it were the second is how a green
+  suite comes to defend behaviour nobody ever wanted.
 
 ## What deliberately is not here
 

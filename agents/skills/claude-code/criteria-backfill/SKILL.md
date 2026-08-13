@@ -1,36 +1,50 @@
 ---
 name: criteria-backfill
-description: Write acceptance criteria for software that already exists. Asks which area or topic to investigate, reads the documentation and the code to learn how it behaves, then recommends a filename, a location, roles, user stories and a numbered scenario list for correction before anything is written. Every intent it cannot source is marked INFERRED and needs confirming. Use when the architect says "backfill", "write criteria for X", "we have no scenarios for this area", "document what this does", or a plan turns up work with no criteria behind it.
+description: Reverse engineer a legacy application into specs and tests that QA and the solution architect can verify. Asks which area to investigate, learns the behaviour by reading and running it, then recommends a filename, ids, roles, user stories and a numbered scenario list for correction before anything is written. Builds criteria and characterisation journeys from OBSERVATION; intent is inferred and marked as such until a human confirms it. Use when the architect says "backfill", "reverse engineer X", "we have no scenarios for this area", "document what this does", or a plan turns up work with no criteria behind it.
 ---
 
-# Backfill criteria from existing software
+# Reverse engineer an existing application
 
-Producing the tier 1 layer for something already built. The output is a document of scenarios
-that a person can confirm, correct or reject - **not** a description that agrees with the code
-by construction.
+This is the **reverse direction** of the two the process has. Forward is intent to criteria to
+tests to code, and the solution architect drives it. Reverse is this: a legacy application
+exists, nobody wrote down what it promises, and the job is to produce specs and tests from
+**observation** to the point where QA and the architect can verify them.
+
+The output is a document of scenarios, and journeys that pin the behaviour, which a person can
+confirm, correct or reject.
 
 Four steps. **Nothing is written until step 3 has been corrected.**
 
 ---
 
-## 0. The rule this skill exists to obey
+## 0. What is being produced, and what it is worth
 
 > Code contains what a system **does**. It never contains why anyone wanted it.
 
-An agent asked to document intent while reading only the implementation will produce intent
-fluently, plausibly, and **fabricated**. That is not a risk to be careful about; it is the
-default behaviour, and it is why every intent line here is either a citation or the word
-`INFERRED`.
+So the behaviour here is observed and the **intent is inferred**, every time, and it is marked
+`INFERRED` rather than asserted. An agent asked to document intent while reading only the
+implementation will produce it fluently, plausibly and fabricated; the marking is what stops
+that from becoming a requirement nobody chose.
 
-The reason it matters is worth carrying while you work: criteria built from observed behaviour
-yield tests that assert the software does what the software does. They cannot fail. Criteria
-built from sourced intent yield tests that can **disagree** with the delivered software, and a
-disagreement is a defect found. A backfill that produces only the first kind has cost time and
-bought nothing.
+**Yes, this produces tests as well as criteria** - characterisation journeys that pin what the
+software does today. Be clear about what they are worth, because it is not the same as a forward
+test:
 
-**Do not write journeys here.** A journey written from the same reading as the criterion agrees
-with it by construction. Tests come from `criteria-test`, which learns by running the software -
-a different evidence source, which is what lets a test dissent.
+- They **cannot disagree with the software.** They were written from it. A green one proves
+  nothing about whether the behaviour is right.
+- What they buy is that the behaviour is now **pinned**: a change to it becomes visible instead
+  of silent, on a codebase where nothing was watching.
+- And they make the criteria **verifiable**: QA and the architect get something concrete to
+  watch running, rather than a paragraph to agree with in the abstract.
+
+The disagreement comes later, and from a person - reading a derived criterion and saying *that is
+not what it should do*. That is the whole point of the reverse direction, and it is why the one
+rule that must not bend is the next one.
+
+**Nothing produced here is confirmed.** Every scenario is `derived`, every intent is `INFERRED`
+unless genuinely cited, and nothing is ever `accepted` or `verified`. A characterisation test
+whose criterion has been mistaken for a requirement is worse than no test, because it now defends
+the current behaviour against anyone trying to change it.
 
 ## 1. Ask what to investigate
 
@@ -116,7 +130,7 @@ catch a defect.
 Also present the anomalies, separately and plainly. They are not scenarios and should not be
 smuggled in as if they were.
 
-## 4. Write it
+## 4. Write the criteria, then the journeys that pin them
 
 Only after correction. Follow `criteria-review guide` and the standard's authoring rules; the
 ones most often broken here:
@@ -135,8 +149,17 @@ ones most often broken here:
 - **Every block carries a provenance comment**, a citation or `INFERRED`.
 
 Where you believe the behaviour is wrong, **write the scenario as the wanted behaviour and say
-so in the comment.** A document that agrees with the software everywhere was derived, not
-sourced.
+so in the comment**, and do not write a journey pinning the behaviour you think is a defect.
+
+Then the journeys, following `criteria-test`'s rules for binding, selectors and seeding - with
+one difference that matters. There, a journey that disagrees with its criterion is a finding to
+raise. Here the criterion came from the behaviour, so a disagreement means you observed it
+wrongly: go back and look again rather than adjusting either artefact to match the other.
+
+**A scenario you cannot exercise is a finding, not a gap.** A path no caller can reach, a state
+nothing writes, an affordance with nothing behind it - record it in the anomaly list and leave
+the scenario without a journey. Writing a journey that fakes its way into an unreachable state
+would produce a green test for something that cannot happen.
 
 ## 5. Hand it on
 
@@ -144,11 +167,18 @@ Say what was produced and what is owed:
 
 ```
 14 scenarios written to acceptance/till-lock/till-lock-acceptance.md
-  9 sourced, 5 INFERRED - the 5 need your intent before they mean anything
-3 anomalies found (listed above), none of them scenarios
-Next: `criteria-lookup` to walk the 5, or `criteria-test` once they are confirmed
+  2 sourced, 12 INFERRED - the 12 are questions, not statements
+11 characterisation journeys written and green - they PIN today's behaviour and
+   prove nothing about whether it is right
+3 scenarios could not be exercised (listed) - and that is a finding, not a gap
+4 anomalies found (listed above), none of them scenarios
+Next: `criteria-lookup` to walk the inferred ones with the recordings beside them
 ```
 
+Say plainly that the green journeys are not evidence of correctness. A reader who takes "11
+green" as reassurance has drawn the opposite conclusion from the truth: they show the software
+does what it does, on a codebase where nobody had written down what it should do.
+
 Never promote a status, never mark anything accepted, and do not fix the anomalies here. This
-skill produces a document and a list of questions. Answering them is the architect's, and acting
-on them is another skill's.
+skill produces a document, a set of pinning tests and a list of questions. Answering them is the
+architect's, and acting on them is another skill's.
