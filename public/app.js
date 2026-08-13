@@ -188,7 +188,16 @@ function applyFilters() {
     .filter((s) => matchesVideo(s, video))
     .filter((s) =>
       q
-        ? [s.id, s.title, s.feature, s.persona, s.source, (s.steps || []).join(' ')]
+        ? [
+            s.id,
+            s.title,
+            s.titleDisplay,
+            s.feature,
+            s.persona,
+            s.source,
+            (s.steps || []).join(' '),
+            (s.stepsDisplay || []).join(' '),
+          ]
             .filter(Boolean)
             .join(' ')
             .toLowerCase()
@@ -264,7 +273,7 @@ function scenarioRow(s, i, depth = 0) {
                     : 'Intent recorded but no source cited'
                 }">!</span>`
           }</span>
-          <span class="row-title">${escapeHtml(s.title)}</span>
+          <span class="row-title">${escapeHtml(s.titleDisplay ?? s.title)}</span>
         </button>`;
 }
 
@@ -453,12 +462,12 @@ function renderDetail() {
       <code class="id">${s.id || '(no id)'}</code>
       ${s.persona ? `<span class="persona">${escapeHtml(s.persona)}</span>` : ''}
     </div>
-    <h2>${escapeHtml(s.title)}</h2>
+    <h2>${escapeHtml(s.titleDisplay ?? s.title)}</h2>
     <p class="where">${escapeHtml(s.project)} · ${escapeHtml(s.source)}${
       s.feature ? ` · <em>${escapeHtml(s.feature)}</em>` : ''
     }</p>
     ${intent}
-    <pre class="steps">${s.steps.map(escapeHtml).join('\n')}</pre>
+    <pre class="steps">${(s.stepsDisplay ?? s.steps).map(escapeHtml).join('\n')}</pre>
     ${renderNotes(s)}
     ${renderVideo(s)}
     ${

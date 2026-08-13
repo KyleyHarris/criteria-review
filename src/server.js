@@ -20,6 +20,8 @@ import { setStatus, addNote, setFlag, clearNotes } from './write.js';
 import { indexVideos, videoFor, expectedPath } from './videos.js';
 import { listStandardDocs, readStandardDoc } from './standard.js';
 import { loadPlan } from './plan.js';
+import { loadSettings } from './config.js';
+import { loadTerms, renderTerms } from './terms.js';
 import { branchName, repoName } from './media.js';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -278,12 +280,26 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
         // and its own plan - which is what lets several people work at once without their
         // batches bleeding into each other's page.
         const planned = new Map();
+        // The glossary, per project. The page is where a person READS criteria, so it shows
+        // the words the product uses; the raw markers stay in the payload because that is
+        // what a journey binds to and what a write has to put back.
+        const glossaries = new Map();
         for (const root of roots) {
           try {
             const plan = await loadPlan(root.path);
             planned.set(root.name, new Set(plan.ids ?? []));
           } catch {
             planned.set(root.name, new Set());
+          }
+          try {
+            const settings = await loadSettings(root.path);
+            const { terms } = settings.terms
+              ? await loadTerms(join(root.path, settings.terms))
+              : { terms: {} };
+            glossaries.set(root.name, terms);
+          } catch {
+            // A broken glossary must not blank the queue; `terms check` reports it loudly.
+            glossaries.set(root.name, {});
           }
         }
 
@@ -310,6 +326,10 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
             // should read the same whoever is looking at it. Display only, unlike
             // `source`, which reaches a committed artefact.
             inPlan: planned.get(s.project)?.has(s.id) ?? false,
+            titleDisplay: renderTerms(s.title, glossaries.get(s.project) ?? {}).rendered,
+            stepsDisplay: (s.steps ?? []).map(
+              (t) => renderTerms(t, glossaries.get(s.project) ?? {}).rendered
+            ),
             videoExpected: toPosixPath(
               relative(
                 roots.find((r) => r.name === s.project)?.path ?? '',

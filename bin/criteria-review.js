@@ -14,6 +14,7 @@ import { createReviewServer } from '../src/server.js';
 import { scanAll, changedSince } from '../src/scan.js';
 import { loadSettings, PROJECT_CONFIG } from '../src/config.js';
 import { ejectStandard } from '../src/standard.js';
+import { loadTerms, renderTerms, variantOf } from '../src/terms.js';
 import {
   loadPlan,
   savePlan,
@@ -219,6 +220,7 @@ function usage() {
                                         set|add [IDs|-]    from args or piped text
                                         show | next | check | clear
                                         --task <name> --source <where it came from>
+  criteria-review terms [show|check]  the glossary: what it defines and what documents use
   criteria-review manifest            evidence index: scenarios, clips, and the work item
                                         --out <file>      write it (default: stdout)
                                         --since <ref> | --all   scope, else the plan
@@ -326,7 +328,7 @@ async function cmdGenerate(args) {
   // break another's build.
   const roots = named
     ? [{ name: basename(resolve(named)), path: resolve(named) }]
-    : await rootsFrom(args);
+    : await scopedRoots(args);
   if (roots.length > 1) {
     throw new Error(
       `generate targets one project; ${roots.length} are registered. Name one: ` +
@@ -338,7 +340,10 @@ async function cmdGenerate(args) {
   for (const m of missing) throw new Error(`${m.name}: ${m.path} (${m.reason})`);
 
   const scenarios = results.flatMap((r) => r.scenarios);
-  const model = buildModel(scenarios);
+  const { terms } = settings.terms
+    ? await loadTerms(resolve(settingsRoot, settings.terms))
+    : { terms: {} };
+  const model = buildModel(scenarios, { terms });
   const text = render(model);
 
   const target = resolve(roots[0].path, out);
@@ -422,6 +427,16 @@ async function scopedRoots(args) {
   );
   // The deepest match wins, so a worktree inside a registered parent scopes to itself.
   if (here.length) return [here.sort((a, b) => b.path.length - a.path.length)[0]];
+
+  // Not registered, but it declares itself a consumer: use it. Falling through to "the
+  // registered projects" would answer about somebody else's repository from inside this
+  // one, which is the wrong answer even when it names which project it used.
+  try {
+    await readFile(join(cwd, PROJECT_CONFIG), 'utf8');
+    return [{ name: basename(cwd), path: cwd }];
+  } catch {
+    // No declaration here; fall back to what is registered.
+  }
   return rootsFrom(args);
 }
 
@@ -595,6 +610,87 @@ async function readStdin() {
  * source the plan recorded. Scenarios with NO recording are listed rather than omitted,
  * because a package that silently contains only what was filmed reads as complete.
  */
+/**
+ * The glossary: inspect it, validate it, and find what the documents actually use.
+ *
+ * This tool owns the FORMAT and the REQUIREMENT. It does not own the content and never
+ * generates it: a project's vocabulary really lives in its own registry, its own database or
+ * its own head, and a second hand-kept copy here would be drift on a new axis. The project
+ * writes a script that emits this file; `criteria-glossary` is the skill that helps define
+ * that script once so "update glossary" is one command afterwards.
+ */
+async function cmdTerms(args) {
+  const roots = await scopedRoots(args);
+  const root = roots[0]?.path ?? process.cwd();
+  const settings = await loadSettings(root);
+  const verb = args._[1] ?? 'show';
+
+  if (!settings.terms) {
+    console.log(
+      `No glossary declared for ${roots[0]?.name ?? 'this project'}.\n\n` +
+        `Criteria that spell a domain noun go stale the moment the product renames it, and\n` +
+        `nothing can notice, because the words are prose. Declare one:\n\n` +
+        `  ${PROJECT_CONFIG}: {"terms": "acceptance/terms.json"}\n\n` +
+        `Then generate it from wherever your vocabulary really lives - see the standard's\n` +
+        `glossary document, and the criteria-glossary skill.`
+    );
+    return;
+  }
+
+  const { terms, file, found } = await loadTerms(resolve(root, settings.terms));
+  if (!found) throw new Error(`${settings.terms} is declared but does not exist (${file})`);
+
+  const { results } = await scanAllRoots(roots);
+  const scenarios = results.flatMap((r) => r.scenarios);
+
+  // What the documents ask for, versus what the glossary defines. Both directions matter: an
+  // unknown key is a broken criterion, and a term nobody uses is usually a rename that only
+  // half happened.
+  const used = new Map();
+  const unresolved = [];
+  for (const s of scenarios) {
+    for (const text of [s.title, ...s.steps]) {
+      const { missing } = renderTerms(text, terms);
+      for (const ref of missing) unresolved.push({ ref, id: s.id, source: s.source });
+      for (const m of String(text).matchAll(/\{([a-zA-Z][\w]*)(?:\.[a-zA-Z]+)?\}/g)) {
+        used.set(m[1], (used.get(m[1]) ?? 0) + 1);
+      }
+    }
+  }
+
+  if (verb === 'check') {
+    if (!unresolved.length) {
+      console.log(`glossary ok: ${Object.keys(terms).length} terms, every marker resolves`);
+      return;
+    }
+    console.error(`${unresolved.length} unresolved term reference(s):`);
+    for (const u of unresolved) console.error(`  ${u.ref}  in ${u.id} (${u.source})`);
+    process.exit(1);
+  }
+
+  if (verb !== 'show') throw new Error(`unknown terms verb "${verb}". Try: show, check`);
+
+  console.log(`${file}\n${Object.keys(terms).length} term(s)\n`);
+  for (const [key, term] of Object.entries(terms)) {
+    const n = used.get(key) ?? 0;
+    console.log(
+      `  ${key.padEnd(18)} ${term.value} / ${term.plural}` +
+        `${term.casing === 'preserve' ? '  [casing preserved]' : ''}` +
+        `  ${n ? `used ${n}x` : 'UNUSED'}`
+    );
+    console.log(`  ${''.padEnd(18)} ${term.description}`);
+    console.log(
+      `  ${''.padEnd(18)} lower: ${variantOf(term, 'lower')} · possessive: ${variantOf(term, 'possessive')}\n`
+    );
+  }
+
+  const undefinedKeys = [...new Set(unresolved.map((u) => u.ref.split('.')[0]))];
+  if (undefinedKeys.length) {
+    console.log(`Used in documents but NOT defined: ${undefinedKeys.join(', ')}`);
+    console.log('Run `criteria-review terms check` to see where.');
+  }
+}
+
 async function cmdManifest(args) {
   const roots = await scopedRoots(args);
   const root = roots[0]?.path ?? process.cwd();
@@ -1022,6 +1118,7 @@ async function main() {
 
   // The conversational surface: walk, read, answer. No browser, no running server.
   if (cmd === 'plan') return cmdPlan(args);
+  if (cmd === 'terms') return cmdTerms(args);
   if (cmd === 'manifest') return cmdManifest(args);
   if (cmd === 'queue') return cmdQueue(args);
   if (cmd === 'show') return cmdShow(args);

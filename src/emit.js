@@ -19,6 +19,7 @@
 
 import { STATUSES, isUntracked } from './parse.js';
 import { STANDARD_VERSION } from './version.js';
+import { renderTerms } from './terms.js';
 
 /** Raised with every problem found, rather than the first, so one run fixes them all. */
 export class EmitError extends Error {
@@ -43,6 +44,7 @@ export class EmitError extends Error {
  * someone edited a document and did not regenerate.
  */
 export function buildModel(scenarios, options = {}) {
+  const terms = options.terms ?? {};
   const problems = [];
   const untracked = [];
   const byId = new Map();
@@ -84,10 +86,26 @@ export function buildModel(scenarios, options = {}) {
       continue;
     }
 
+    // Rendered ALONGSIDE the raw clause, never instead of it. The raw text is the binding
+    // key a journey supplies a body for, so it must survive a term rename untouched -
+    // emitting the rendered words would turn every rename into a mechanical edit across
+    // every citing journey, which is the churn a glossary exists to prevent. Display is
+    // resolved here so captions, reports and videos read as the product does.
+    const rendered = [s.title, ...s.steps].map((t) => renderTerms(t, terms));
+    const unresolved = rendered.flatMap((r) => r.missing);
+    if (unresolved.length) {
+      problems.push(
+        `${s.id} (${s.source}): unknown term(s) ${[...new Set(unresolved)].join(', ')}. ` +
+          `Add them to the glossary, or fix the marker.`
+      );
+      continue;
+    }
+
     const entry = {
       id: s.id,
       tag: `@${s.id}`,
       title: s.title,
+      titleDisplay: rendered[0].rendered,
       feature: s.feature ?? null,
       status: s.status,
       persona: s.persona ?? null,
@@ -95,6 +113,7 @@ export function buildModel(scenarios, options = {}) {
       commit: s.commit ?? null,
       intent: s.intent ?? null,
       steps: s.steps.slice(),
+      stepsDisplay: rendered.slice(1).map((r) => r.rendered),
       source: s.source,
     };
     byId.set(s.id, entry);
@@ -157,12 +176,17 @@ export function renderTypeScript(model) {
     out.push(`    id: ${lit(s.id)},`);
     out.push(`    tag: ${lit(s.tag)},`);
     out.push(`    title: ${lit(s.title)},`);
+    out.push(`    titleDisplay: ${lit(s.titleDisplay)},`);
     out.push(`    feature: ${s.feature === null ? 'null' : lit(s.feature)},`);
     out.push(`    status: ${lit(s.status)},`);
     out.push(`    persona: ${s.persona === null ? 'null' : lit(s.persona)},`);
     out.push(`    source: ${lit(s.source)},`);
     out.push(`    steps: [`);
     for (const step of s.steps) out.push(`      ${lit(step)},`);
+    out.push(`    ],`);
+    // Display strings for captions and reports. The KEYS above are what a journey binds to.
+    out.push(`    stepsDisplay: [`);
+    for (const step of s.stepsDisplay) out.push(`      ${lit(step)},`);
     out.push(`    ],`);
     out.push(`  },`);
   }

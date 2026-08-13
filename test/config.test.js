@@ -81,7 +81,7 @@ test('an unknown key is refused by name rather than ignored', async () => {
     () => loadSettings(dir),
     (err) => {
       assert.match(err.message, /"videoDirectory" is not settable here/);
-      assert.match(err.message, /Allowed: emit, extraDocs, publish, standard, videoDir/);
+      assert.match(err.message, /Allowed: emit, extraDocs, publish, standard, terms, videoDir/);
       return true;
     }
   );
