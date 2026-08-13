@@ -57,16 +57,19 @@ the bottom.
 Status is **`proposed`**: written at planning, before the software exists. That is exactly what
 that status means, and it distinguishes these from anything derived off an implementation.
 
-**Tier 2** - the obligations this feature instantiates, taken from the catalogue rather than
-from imagination. They attach to **the unit of work, not to a scenario and not to a journey**:
-an obligation is by definition something no user would describe, so it has no tier 1 parent and
-never will. Write them to a sibling file in the area folder -
-`acceptance/<area>/<area>-obligations.md` - separate from the acceptance document because tier 1
-goes to the requester and tier 2 never does, and "send them that file" is safer than "send that
-file with the second half removed". Partial writes, idempotency under retry, races, audit ordering, malformed
-input, boundaries, authorisation enumerated including who must be refused. A catalogue can be
-checked against; diligence cannot. This never goes in front of the requester: it buries the
-business intent they are being asked to approve.
+**Tier 2** - the obligations this feature instantiates: partial writes, idempotency under retry,
+races, audit ordering, malformed input, boundaries, and authorisation enumerated including who
+must be refused. Taken from the catalogue rather than from imagination, because a catalogue can
+be checked against and diligence cannot.
+
+They attach to **the unit of work, never to a scenario or a journey.** An obligation is by
+definition something no user would describe, so it has no tier 1 parent and never will.
+
+Write them to a sibling file in the area folder, `acceptance/<area>/<area>-obligations.md`, kept
+separate from the acceptance document for one practical reason: tier 1 is shared with the
+requester and tier 2 never is, so "send them that file" is a safer operation than "send that file
+with the second half removed". Putting tier 2 in front of the requester buries the business
+intent they are being asked to approve.
 
 Present both for correction before writing anything. For tier 1, present the ids you propose and
 let them be renamed - ids are stable forever and never reused, so a bad prefix is expensive
