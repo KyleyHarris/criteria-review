@@ -134,10 +134,49 @@ not.
 
 ## What is here
 
+They are one loop, not six tools. The review produces work orders - *write the code to match
+this criterion*, or *write the test to match the existing code* - and the skills are what
+execute them.
+
+```
+backfill  ->  criteria + INFERRED intent, from documents and code
+                  |
+plan      ->  the scenarios a task covers
+                  |
+lookup    ->  the architect confirms, corrects, or rejects
+                  |
+        +---------+---------+
+        |                   |
+     test                develop
+ "write the test"     "write the code"
+        |                   |
+        +---------+---------+
+                  |
+              bundle  ->  the evidence
+```
+
 | Skill | For |
 |---|---|
-| [`skills/claude-code/criteria-plan`](skills/claude-code/criteria-plan/SKILL.md) | Turning a task into a working list of scenarios: ask for the list, verify it, prepare it, then act on it |
-| [`skills/claude-code/criteria-lookup`](skills/claude-code/criteria-lookup/SKILL.md) | Looking a scenario up and answering it in conversation, and walking the queue one at a time |
+| [`criteria-backfill`](skills/claude-code/criteria-backfill/SKILL.md) | Writing criteria for software that already exists: investigate an area, recommend the file, ids and scenarios, mark unsourced intent `INFERRED` |
+| [`criteria-plan`](skills/claude-code/criteria-plan/SKILL.md) | Turning a task into a working list of scenario ids: ask, verify, prepare, then act |
+| [`criteria-lookup`](skills/claude-code/criteria-lookup/SKILL.md) | Looking a scenario up and answering it in conversation, and walking the queue one at a time |
+| [`criteria-test`](skills/claude-code/criteria-test/SKILL.md) | Building the journey for a criterion, learning the behaviour by driving the running app |
+| [`criteria-develop`](skills/claude-code/criteria-develop/SKILL.md) | Implementing code for criteria the build does not satisfy, red to green, without editing the criterion |
+| [`criteria-bundle`](skills/claude-code/criteria-bundle/SKILL.md) | Recording narrated videos for a plan or a branch, and packaging them with their documents |
+
+### What every one of them refuses
+
+Worth reading even if you port only one, because these are the rules that make the rest worth
+having:
+
+- **Never edit a criterion to make a test pass.** Easy, invisible, and the failure the whole
+  system exists to prevent. When the criterion is wrong, raise it and stop.
+- **Never promote a status.** `verified` claims a person watched it; `accepted` is a claim about
+  intent. Neither is an agent's to make, and least of all about its own work.
+- **Never invent intent.** Cite a source or write `INFERRED`. Code contains what a system does,
+  never why anyone wanted it.
+- **Never let backfill write the journey.** A test written from the same reading as the
+  criterion agrees with it by construction and can never disagree with the software.
 
 ## What deliberately is not here
 
