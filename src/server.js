@@ -20,6 +20,7 @@ import { setStatus, addNote, setFlag, clearNotes } from './write.js';
 import { indexVideos, videoFor, expectedPath } from './videos.js';
 import { listStandardDocs, readStandardDoc } from './standard.js';
 import { loadPlan } from './plan.js';
+import { STANDARD_VERSION } from './version.js';
 import { loadSettings } from './config.js';
 import { loadTerms, renderTerms } from './terms.js';
 import { branchName, repoName } from './media.js';
@@ -351,6 +352,10 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
           }
         }
         return json(res, 200, {
+          // Stamped so a page can tell it is older than the server it is talking to. An open
+          // tab keeps updating its DATA over SSE while running the JS it loaded hours ago, so
+          // without this an upgrade looks like a broken feature rather than a stale page.
+          standardVersion: STANDARD_VERSION,
           scenarios,
           projects: results.map((r) => ({
             name: r.project,
@@ -449,7 +454,15 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
         if (name.includes('..')) return json(res, 400, { error: 'Bad path' });
         try {
           const buf = await readFile(join(PUBLIC_DIR, name));
-          res.writeHead(200, { 'content-type': MIME[extname(name)] ?? 'text/plain' });
+          res.writeHead(200, {
+            'content-type': MIME[extname(name)] ?? 'text/plain',
+            // Always revalidate. This tool is designed to be left open for hours and to
+            // upgrade underneath itself, and a cached script keeps rendering by the
+            // previous release's rules while its DATA updates live - which looks like the
+            // new feature is broken rather than like the page is old. The files are local,
+            // so revalidating costs nothing.
+            'cache-control': 'no-cache',
+          });
           return res.end(buf);
         } catch {
           return json(res, 404, { error: 'Not found' });

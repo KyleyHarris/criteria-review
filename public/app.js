@@ -41,6 +41,10 @@ const state = {
   // so both, rather than a compromise that serves neither.
   tree: false,
   collapsed: new Set(),
+  // The version this page loaded against. A tab left open across an upgrade keeps running
+  // its original script while its data refreshes live, so the two can silently disagree
+  // about how a scenario should render.
+  version: null,
 };
 
 /**
@@ -114,14 +118,14 @@ function restoreViewState() {
  * context the reviewer needs while working through the affected scenarios, not a
  * notification to acknowledge and forget.
  */
-function banner(text) {
+function banner(text, onClick) {
   const el = document.getElementById('banner');
   if (!el) return;
   el.textContent = text;
   el.hidden = false;
-  el.onclick = () => {
-    el.hidden = true;
-  };
+  // A banner that offers an action performs it; otherwise clicking dismisses. Both are
+  // one click, and which one it is has just been stated in the text.
+  el.onclick = onClick ?? (() => { el.hidden = true; });
 }
 
 async function api(path, options) {
@@ -535,7 +539,7 @@ async function act(action) {
  */
 function openNoteEditor(s) {
   const dlg = document.getElementById('note-dialog');
-  document.getElementById('note-for').textContent = `${s.id} - ${s.title}`;
+  document.getElementById('note-for').textContent = `${s.id} - ${s.titleDisplay ?? s.title}`;
   const ta = document.getElementById('note-text');
   ta.value = '';
   dlg.showModal();
@@ -649,6 +653,20 @@ async function load({ keepIndex } = {}) {
     state.restoreKey = null;
   }
   saveViewState();
+
+  // Say so ONCE, and only when it has actually changed - a page nagging on every refresh
+  // gets its banner dismissed reflexively, which is the same as not warning at all.
+  if (data.standardVersion) {
+    if (!state.version) state.version = data.standardVersion;
+    else if (state.version !== data.standardVersion && !state.staleNotified) {
+      state.staleNotified = true;
+      banner(
+        `This page was loaded against standard ${state.version}; the tool is now running ` +
+          `${data.standardVersion}. Click here to reload and pick it up.`,
+        () => location.reload()
+      );
+    }
+  }
 
   if (data.missing?.length) {
     toast(`Missing roots: ${data.missing.map((m) => m.name).join(', ')}`, true);
