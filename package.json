@@ -1,6 +1,6 @@
 {
   "name": "criteria-review",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "private": false,
   "description": "Review acceptance criteria across projects, and generate the scenario clauses your tests cite.",
   "license": "MIT",

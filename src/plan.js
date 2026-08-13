@@ -35,24 +35,80 @@ export async function planPath(root) {
   return join(root, DIR, `plan-${slug(await branchName(root))}.json`);
 }
 
+/**
+ * Several tasks at once, because that is how work actually arrives.
+ *
+ * A plan is a LIST of tasks, each with its own ids and its own provenance. Still only
+ * numbers and where they came from - no titles, no statuses, no working state, exactly as
+ * before. Grouping does not make the plan know anything; it makes it able to say WHICH task
+ * an id was declared under, which is the thing a person needs when two are in flight.
+ *
+ * A plan written before this read as a single task. It still loads: a flat `{task, source,
+ * ids}` normalises into one entry, so nothing has to be migrated and an old file cannot
+ * silently lose its contents.
+ */
+function normalise(raw) {
+  if (Array.isArray(raw?.tasks)) {
+    return raw.tasks.map((t) => ({
+      task: t.task ?? null,
+      source: t.source ?? null,
+      ids: [...new Set(t.ids ?? [])],
+    }));
+  }
+  if (raw?.ids?.length || raw?.task) {
+    return [{ task: raw.task ?? null, source: raw.source ?? null, ids: [...new Set(raw.ids ?? [])] }];
+  }
+  return [];
+}
+
 export async function loadPlan(root) {
   const file = await planPath(root);
   try {
-    const plan = JSON.parse(await readFile(file, 'utf8'));
-    return { task: null, source: null, ids: [], ...plan, file, found: true };
+    const raw = JSON.parse(await readFile(file, 'utf8'));
+    const tasks = normalise(raw);
+    return { tasks, ids: tasks.flatMap((t) => t.ids), file, found: true };
   } catch (err) {
-    if (err.code === 'ENOENT') return { task: null, source: null, ids: [], file, found: false };
+    if (err.code === 'ENOENT') return { tasks: [], ids: [], file, found: false };
     throw new Error(`${file}: ${err.message}`);
   }
 }
 
-export async function savePlan(root, { task, source, ids }) {
+export async function savePlan(root, tasks) {
   const file = await planPath(root);
   await mkdir(join(root, DIR), { recursive: true });
-  // Exactly three fields. A field added here is a field that can contradict a document.
-  const body = { task: task ?? null, source: source ?? null, ids: [...new Set(ids)] };
+  // Three fields per task and nothing else. A field added here is a field that can
+  // contradict a document.
+  const body = {
+    tasks: tasks.map((t) => ({
+      task: t.task ?? null,
+      source: t.source ?? null,
+      ids: [...new Set(t.ids)],
+    })),
+  };
   await writeFile(file, JSON.stringify(body, null, 2) + '\n', 'utf8');
   return file;
+}
+
+/**
+ * Which tasks a name selects.
+ *
+ * Matches loosely on purpose - a person typing `--task till` should not have to reproduce
+ * "Till hardening" exactly - but reports an ambiguous match rather than picking, because
+ * working the wrong task is worse than being asked again.
+ */
+export function selectTasks(tasks, names = []) {
+  if (!names.length) return { selected: tasks, unmatched: [], ambiguous: [] };
+  const selected = [];
+  const unmatched = [];
+  const ambiguous = [];
+  for (const name of names) {
+    const needle = String(name).toLowerCase();
+    const hits = tasks.filter((t) => (t.task ?? '').toLowerCase().includes(needle));
+    if (!hits.length) unmatched.push(name);
+    else if (hits.length > 1) ambiguous.push({ name, matched: hits.map((h) => h.task) });
+    else if (!selected.includes(hits[0])) selected.push(hits[0]);
+  }
+  return { selected, unmatched, ambiguous };
 }
 
 export async function clearPlan(root) {
@@ -114,14 +170,27 @@ export function resolveItems(inputs, scenarios) {
  * deleted is stale, and that failure is silent by nature - a missing item simply does not
  * appear anywhere.
  */
-export function readPlan(plan, scenarios) {
+export function readPlan(plan, scenarios, tasks = null) {
   const byId = new Map(scenarios.filter((s) => s.id).map((s) => [s.id, s]));
+  // Tolerates the flat shape here as well as at load, so the compatibility claim holds for
+  // any caller rather than only for a file read off disk.
+  const groups = tasks ?? (plan.tasks ? plan.tasks : normalise(plan));
   const live = [];
   const orphaned = [];
-  for (const id of plan.ids ?? []) {
-    const hit = byId.get(id);
-    if (hit) live.push(hit);
-    else orphaned.push(id);
+  const seen = new Set();
+  for (const group of groups) {
+    for (const id of group.ids) {
+      const hit = byId.get(id);
+      if (!hit) {
+        orphaned.push({ id, task: group.task });
+        continue;
+      }
+      if (seen.has(id)) continue;
+      seen.add(id);
+      // The task an id was declared under travels with it, because with two in flight the
+      // useful question is not "is this planned" but "which of these am I looking at".
+      live.push({ ...hit, planTask: group.task, planSource: group.source });
+    }
   }
   return { live, orphaned };
 }

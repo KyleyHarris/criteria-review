@@ -71,6 +71,7 @@ function saveViewState() {
         video: $('#video').value,
         search: $('#search').value,
         selected: scenarioKey(state.view[state.index]),
+        task: $('#task').value,
         tab: state.tab,
         doc: state.doc,
         tree: state.tree,
@@ -95,6 +96,7 @@ function restoreViewState() {
   if (saved.status != null) $('#status').value = saved.status;
   if (saved.video != null) $('#video').value = saved.video;
   if (saved.search != null) $('#search').value = saved.search;
+  state.savedTask = saved.task ?? '';
   state.restoreKey = saved.selected ?? null;
   state.savedProject = saved.project ?? '';
   // The reading position is part of the session too: someone half way through a
@@ -181,8 +183,11 @@ function applyFilters() {
   const q = $('#search').value.trim().toLowerCase();
 
   const video = $('#video').value;
+  const task = $('#task').value;
 
   const filtered = state.all
+    // A set of tasks is normal, so narrowing to one is a filter rather than a mode.
+    .filter((s) => (task ? s.planTask === task : true))
     .filter((s) => (project ? s.project === project : true))
     .filter((s) => matchesStatus(s, status))
     .filter((s) => matchesVideo(s, video))
@@ -615,6 +620,19 @@ async function load({ keepIndex } = {}) {
     '<option value="">everything</option>';
   st.value = stCurrent;
 
+  // The task list comes from what the plan actually declared, so an option cannot exist for
+  // a task nothing is planned under - and a selection that no longer exists falls back to
+  // "all" rather than silently showing an empty queue.
+  const taskSel = $('#task');
+  const tasks = [...new Set(state.all.map((s) => s.planTask).filter(Boolean))].sort();
+  const wantTask = taskSel.value || state.savedTask || '';
+  taskSel.innerHTML =
+    '<option value="">all tasks</option>' +
+    tasks.map((t) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  taskSel.value = tasks.includes(wantTask) ? wantTask : '';
+  state.savedTask = null;
+  taskSel.hidden = tasks.length === 0;
+
   renderRoots();
 
   if (!keepIndex) state.index = 0;
@@ -828,7 +846,7 @@ $('#detail').addEventListener('click', (e) => {
   if (b) act(b.dataset.act);
 });
 
-for (const id of ['#project', '#status', '#video', '#search']) {
+for (const id of ['#project', '#status', '#video', '#search', '#task']) {
   $(id).addEventListener('input', () => {
     applyFilters();
     renderRoots();

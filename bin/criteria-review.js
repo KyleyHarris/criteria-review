@@ -22,6 +22,7 @@ import {
   resolveItems,
   readPlan,
   completeness,
+  selectTasks,
 } from '../src/plan.js';
 import { isUntracked, needsReview } from '../src/parse.js';
 import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
@@ -79,7 +80,8 @@ function parseArgs(argv) {
     // the last release tag. See changedSince.
     else if (a === '--since') args.since = argv[++i];
     else if (a === '--plan') args.plan = true;
-    else if (a === '--task') args.task = argv[++i];
+    // Repeatable: several tasks can be in flight, and working a set of them is normal.
+    else if (a === '--task') (args.tasks ??= []).push(argv[++i]);
     else if (a === '--source') args.source = argv[++i];
     else if (a === '--format') args.format = argv[++i];
     // Verify rather than write: the gate's half of generation. See cmdGenerate.
@@ -219,7 +221,8 @@ function usage() {
   criteria-review plan [verb]         the scenarios this task covers (ids only):
                                         set|add [IDs|-]    from args or piped text
                                         show | next | check | clear
-                                        --task <name> --source <where it came from>
+                                        --task <name>      repeatable: several in flight
+                                        --source <where it came from>
   criteria-review terms [show|check]  the glossary: what it defines and what documents use
   criteria-review manifest            evidence index: scenarios, clips, and the work item
                                         --out <file>      write it (default: stdout)
@@ -229,6 +232,7 @@ function usage() {
                                         --all             every registered project
                                         --since <ref>     only what changed since a ref
                                         --plan            only what the plan covers
+                                        --task <name>     narrow to one or more tasks
                                         --json            machine-readable
   criteria-review show <ID> [proj]    one scenario in full, with its notes
   criteria-review note <ID> [proj]    write the architect's note (raises @review):
@@ -531,16 +535,46 @@ async function cmdPlan(args) {
 
   const plan = await loadPlan(root);
 
+  // Narrow to named tasks, refusing an ambiguous name rather than picking one - working the
+  // wrong task is worse than being asked again.
+  const pick = (tasks) => {
+    const { selected, unmatched, ambiguous } = selectTasks(tasks, args.tasks ?? []);
+    for (const n of unmatched) console.error(`warning: no task matching "${n}" in this plan`);
+    for (const a of ambiguous) {
+      throw new Error(`"${a.name}" matches ${a.matched.length} tasks: ${a.matched.join(', ')}`);
+    }
+    return selected;
+  };
+
   if (verb === 'set' || verb === 'add') {
     // Items come from stdin when nothing is on the command line, so a work item's body can
     // be piped in whole rather than reduced to a tidy list first.
     const fromArgs = args._.slice(2);
     const raw = fromArgs.length ? fromArgs : (await readStdin()).split('\n');
     const { ids, unresolved } = resolveItems(raw, scenarios);
-    const next = verb === 'set' ? ids : [...(plan.ids ?? []), ...ids];
-    await savePlan(root, { task: args.task ?? plan.task, source: args.source ?? plan.source, ids: next });
+    const name = (args.tasks ?? [])[0] ?? null;
 
-    console.log(`${verb === 'set' ? 'plan set to' : 'added'} ${ids.length} scenario(s)`);
+    // `add` with a task NAME appends a task; `add` without one grows the last task. `set`
+    // replaces everything, because a fresh selection should not silently inherit yesterday's.
+    let tasks;
+    if (verb === 'set') {
+      tasks = [{ task: name, source: args.source ?? null, ids }];
+    } else {
+      tasks = [...plan.tasks];
+      const existing = name ? tasks.find((t) => t.task === name) : tasks[tasks.length - 1];
+      if (existing) {
+        existing.ids = [...new Set([...existing.ids, ...ids])];
+        if (args.source) existing.source = args.source;
+      } else {
+        tasks.push({ task: name, source: args.source ?? null, ids });
+      }
+    }
+    await savePlan(root, tasks);
+
+    console.log(
+      `${verb === 'set' ? 'plan set to' : 'added'} ${ids.length} scenario(s)` +
+        `${name ? ` under "${name}"` : ''}; ${tasks.length} task(s) in the plan`
+    );
     if (unresolved.length) {
       // Never silent: an item that vanished here is scope that quietly left the task.
       console.log(`\n${unresolved.length} item(s) did NOT resolve:`);
@@ -550,18 +584,24 @@ async function cmdPlan(args) {
     return;
   }
 
-  const { live, orphaned } = readPlan(plan, scenarios);
+  const chosen = pick(plan.tasks);
+  const { live, orphaned } = readPlan(plan, scenarios, chosen);
   const state = completeness(live);
 
   if (verb === 'check') {
     console.log(
-      `${state.settled}/${state.total} settled` +
-        `${plan.task ? ` for ${plan.task}` : ''}${orphaned.length ? `, ${orphaned.length} orphaned` : ''}`
+      `${state.settled}/${state.total} settled across ${chosen.length} task(s)` +
+        `${orphaned.length ? `, ${orphaned.length} orphaned` : ''}`
     );
     for (const s of state.outstanding) {
-      console.log(`  outstanding  ${(s.id ?? '').padEnd(22)} ${s.status ?? 'untracked'}  ${s.title}`);
+      console.log(
+        `  outstanding  ${(s.id ?? '').padEnd(22)} ${(s.status ?? 'untracked').padEnd(9)}` +
+          ` [${s.planTask ?? 'no task'}]  ${s.title}`
+      );
     }
-    for (const id of orphaned) console.log(`  ORPHANED     ${id} - no longer in the documents`);
+    for (const o of orphaned) {
+      console.log(`  ORPHANED     ${o.id} [${o.task ?? 'no task'}] - no longer in the documents`);
+    }
     // Exit non-zero so this can gate: a task is not done while a declared scenario is not.
     if (state.outstanding.length || orphaned.length) process.exit(1);
     return;
@@ -580,15 +620,23 @@ async function cmdPlan(args) {
     console.log(`no plan for this branch yet (${plan.file})`);
     return;
   }
-  console.log(
-    `${plan.task ?? '(unnamed task)'}${plan.source ? ` · ${plan.source}` : ''}\n` +
-      `${state.settled}/${state.total} settled\n`
-  );
-  for (const s of live) {
-    const mark = s.status === 'accepted' || s.status === 'verified' ? 'x' : ' ';
-    console.log(`  [${mark}] ${(s.id ?? '').padEnd(22)} ${(s.status ?? 'untracked').padEnd(9)} ${s.title}`);
+  console.log(`${state.settled}/${state.total} settled across ${chosen.length} task(s)\n`);
+  for (const group of chosen) {
+    const mine = live.filter((s) => s.planTask === group.task);
+    const done = mine.filter((s) => s.status === 'accepted' || s.status === 'verified').length;
+    console.log(
+      `${group.task ?? '(unnamed task)'}${group.source ? ` · ${group.source}` : ''}` +
+        `  ${done}/${mine.length}`
+    );
+    for (const s of mine) {
+      const mark = s.status === 'accepted' || s.status === 'verified' ? 'x' : ' ';
+      console.log(`  [${mark}] ${(s.id ?? '').padEnd(22)} ${(s.status ?? 'untracked').padEnd(9)} ${s.title}`);
+    }
+    for (const o of orphaned.filter((o) => o.task === group.task)) {
+      console.log(`  [!] ${o.id.padEnd(22)} ORPHANED - no longer in the documents`);
+    }
+    console.log('');
   }
-  for (const id of orphaned) console.log(`  [!] ${id.padEnd(22)} ORPHANED - no longer in the documents`);
 }
 
 /** Read piped input, so a work item's body can arrive whole. */
@@ -705,10 +753,13 @@ async function cmdManifest(args) {
     chosen = narrowed.scenarios;
     scope = `changed since ${args.since}`;
   } else if (plan.found && !args.all) {
-    const { live, orphaned } = readPlan(plan, all);
+    const { selected } = selectTasks(plan.tasks, args.tasks ?? []);
+    const { live, orphaned } = readPlan(plan, all, selected);
     chosen = live;
-    scope = 'the plan';
-    for (const id of orphaned) console.error(`warning: ${id} is in the plan but not in the documents`);
+    scope = selected.length === plan.tasks.length ? 'the plan' : selected.map((t) => t.task).join(', ');
+    for (const o of orphaned) {
+      console.error(`warning: ${o.id} is in the plan but not in the documents`);
+    }
   }
 
   const index = await indexVideos(roots[0], (await loadConfig()).mediaRoot).catch(() => null);
@@ -728,8 +779,7 @@ async function cmdManifest(args) {
   }
 
   const manifest = {
-    task: plan.task ?? null,
-    source: plan.source ?? null,
+    tasks: plan.tasks.map((t) => ({ task: t.task, source: t.source })),
     project: roots[0]?.name ?? null,
     branch: (await branchName(root)) ?? null,
     scope,
@@ -750,7 +800,8 @@ async function cmdManifest(args) {
     await writeFile(target, text, 'utf8');
     console.log(
       `wrote ${args.out}: ${manifest.counts.scenarios} scenario(s) for ` +
-        `${manifest.task ?? '(no task)'}, ${manifest.counts.missing} with no recording`
+        `${manifest.tasks.map((t) => t.task ?? '(unnamed)').join(', ') || '(no task)'}, ` +
+        `${manifest.counts.missing} with no recording`
     );
     for (const i of items.filter((x) => !x.video)) console.log(`  no recording: ${i.id} ${i.title}`);
     return;
@@ -764,10 +815,18 @@ async function cmdQueue(args) {
   const since = args.since ?? settings?.since ?? null;
   const { results } = await scanAllRoots(roots);
   let { scenarios: all, scope } = await narrowToChanged(results, roots, since);
-  if (args.plan) {
-    // The third scope, and the one a developer actually works to: what I chose.
-    const { live, orphaned } = readPlan(await loadPlan(roots[0]?.path ?? process.cwd()), all);
-    for (const id of orphaned) console.error(`warning: ${id} is in the plan but not in the documents`);
+  if (args.plan || args.tasks?.length) {
+    // The third scope, and the one a developer actually works to: what I chose. Narrowing
+    // further to named tasks is how a set of them is worked without the rest in the way.
+    const loaded = await loadPlan(roots[0]?.path ?? process.cwd());
+    const { selected, ambiguous } = selectTasks(loaded.tasks, args.tasks ?? []);
+    for (const a of ambiguous) {
+      throw new Error(`"${a.name}" matches ${a.matched.length} tasks: ${a.matched.join(', ')}`);
+    }
+    const { live, orphaned } = readPlan(loaded, all, selected);
+    for (const o of orphaned) {
+      console.error(`warning: ${o.id} is in the plan but not in the documents`);
+    }
     all = live;
   }
   for (const project of scope?.unavailable ?? []) {

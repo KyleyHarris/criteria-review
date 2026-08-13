@@ -279,6 +279,8 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
         // globally because each worktree is its own registered entry with its own branch
         // and its own plan - which is what lets several people work at once without their
         // batches bleeding into each other's page.
+        // Which task each id was declared under, so the page can narrow to a set of them
+        // the same way the command line does.
         const planned = new Map();
         // The glossary, per project. The page is where a person READS criteria, so it shows
         // the words the product uses; the raw markers stay in the payload because that is
@@ -287,9 +289,11 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
         for (const root of roots) {
           try {
             const plan = await loadPlan(root.path);
-            planned.set(root.name, new Set(plan.ids ?? []));
+            const byId = new Map();
+            for (const t of plan.tasks ?? []) for (const id of t.ids) byId.set(id, t.task);
+            planned.set(root.name, byId);
           } catch {
-            planned.set(root.name, new Set());
+            planned.set(root.name, new Map());
           }
           try {
             const settings = await loadSettings(root.path);
@@ -326,6 +330,7 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
             // should read the same whoever is looking at it. Display only, unlike
             // `source`, which reaches a committed artefact.
             inPlan: planned.get(s.project)?.has(s.id) ?? false,
+            planTask: planned.get(s.project)?.get(s.id) ?? null,
             titleDisplay: renderTerms(s.title, glossaries.get(s.project) ?? {}).rendered,
             stepsDisplay: (s.steps ?? []).map(
               (t) => renderTerms(t, glossaries.get(s.project) ?? {}).rendered

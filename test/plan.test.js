@@ -66,7 +66,40 @@ test('an id that has left the documents is reported as orphaned', () => {
   // Catches: a renamed or deleted scenario disappearing from the plan silently, which makes
   // a task look smaller than it was declared to be.
   assert.equal(live.length, 1);
-  assert.deepEqual(orphaned, ['GONE-AWAY-001']);
+  assert.deepEqual(orphaned.map((o) => o.id), ['GONE-AWAY-001']);
+});
+
+test('several tasks live in one plan, and each id knows which it came from', () => {
+  const plan = {
+    tasks: [
+      { task: 'Till hardening', source: 'issue #412', ids: ['LOCK-OPEN-001'] },
+      { task: 'Refunds', source: 'AB#8891', ids: ['CASH-CLOSE-003'] },
+    ],
+  };
+  const { live } = readPlan(plan, SCENARIOS);
+
+  // Catches: flattening a set of tasks into one list. With two in flight the useful question
+  // is not "is this planned" but "which of these am I looking at".
+  assert.deepEqual(live.map((s) => [s.id, s.planTask]), [
+    ['LOCK-OPEN-001', 'Till hardening'],
+    ['CASH-CLOSE-003', 'Refunds'],
+  ]);
+});
+
+test('selecting a task narrows the read, and an ambiguous name is refused', async () => {
+  const { selectTasks } = await import('../src/plan.js');
+  const tasks = [
+    { task: 'Till hardening', ids: [] },
+    { task: 'Till reporting', ids: [] },
+    { task: 'Refunds', ids: [] },
+  ];
+
+  assert.deepEqual(selectTasks(tasks, ['refund']).selected.map((t) => t.task), ['Refunds']);
+  // Catches: picking one of two matches. Working the wrong task is worse than being asked.
+  assert.equal(selectTasks(tasks, ['till']).ambiguous.length, 1);
+  assert.deepEqual(selectTasks(tasks, ['nope']).unmatched, ['nope']);
+  // No names means everything, so the default stays "the whole plan".
+  assert.equal(selectTasks(tasks, []).selected.length, 3);
 });
 
 test('completeness is computed from status, never from the plan', () => {

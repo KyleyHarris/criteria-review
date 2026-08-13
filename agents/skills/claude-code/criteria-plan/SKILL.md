@@ -59,8 +59,13 @@ Ask for confirmation, corrections, or additions. Then, and only then, step 3.
 
 ```bash
 npx criteria-review plan set <IDS...> --task "<name>" --source "<where it came from>"
-npx criteria-review plan add <IDS...>          # scope grew: append, never re-set
+npx criteria-review plan add <IDS...>                      # scope grew on the current task
+npx criteria-review plan add <IDS...> --task "<another>"   # a SECOND task, in flight alongside
 ```
+
+**A plan holds a set of tasks, not one.** Working two or three at once is normal, so each keeps
+its own ids and its own provenance, and every id remembers which task declared it. `set` replaces
+the whole plan; `add` with a new name starts another task beside the existing ones.
 
 Piped input works, so a work item body can go in whole:
 
@@ -92,10 +97,17 @@ Every one of those reads the plan rather than being handed a list, so none of th
 own idea of "the current batch":
 
 ```bash
-npx criteria-review queue --plan     # the queue, narrowed to this task
-npx criteria-review plan next        # the next outstanding one, in queue order
-npx criteria-review plan check       # exits non-zero while anything is outstanding
+npx criteria-review queue --plan               # everything the plan covers
+npx criteria-review queue --task "Refunds"     # one of them; repeatable for a subset
+npx criteria-review plan next                  # the next outstanding one, in queue order
+npx criteria-review plan check                 # non-zero while anything is outstanding
 ```
+
+A task name matches loosely, so `--task refund` finds "Refund fixes". A name matching **two**
+tasks is refused rather than picked: working the wrong task is worse than being asked again.
+
+The page narrows the same way, through the task dropdown beside the filters, so a review pass and
+a terminal pass are looking at the same set.
 
 ---
 
