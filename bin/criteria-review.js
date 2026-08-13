@@ -848,9 +848,20 @@ async function main() {
   // an instruction to open the review UI. The old fallthrough turned a typo - or a flag a
   // newer version understands - into a server start, which in a pipeline is a hang and on
   // a desk is EADDRINUSE from the server already running.
-  if (cmd !== undefined || args._.some((a) => a.startsWith('-'))) {
-    const what = cmd ?? args._.find((a) => a.startsWith('-'));
-    throw new Error(`unknown command "${what}". Run: criteria-review help`);
+  // `serve` is how a backgrounded server is spawned (see cmdStart), and no args at all is
+  // the foreground UI. Everything else reaching here is unrecognised.
+  //
+  // NAMED EXPLICITLY rather than left to fall through, which is what made the first
+  // version of this guard reject the tool's own subprocess and break `start`, `here` and
+  // `restart` in a published release. A guard that does not know the commands it is
+  // guarding is a guess.
+  if (cmd !== undefined && cmd !== 'serve') {
+    throw new Error(`unknown command "${cmd}". Run: criteria-review help`);
+  }
+  if (args._.some((a) => a.startsWith('-'))) {
+    throw new Error(
+      `unknown option "${args._.find((a) => a.startsWith('-'))}". Run: criteria-review help`
+    );
   }
 
   const cfg = await loadConfig();

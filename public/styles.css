@@ -25,14 +25,34 @@
 
 * { box-sizing: border-box; }
 
+/*
+ * Flex column, NOT a four-row grid template.
+ *
+ * The grid version assigned rows by POSITION, so it was only correct while every child
+ * was in flow. The banner is `hidden` most of the time, which shifted each remaining
+ * child up a row: the pane took the banner's `auto` row and collapsed to its content,
+ * and the footer took the `1fr` and grew to fill the window. Adding a second view made
+ * it worse again, five children for four rows.
+ *
+ * A flex column has no positional assumption to break: the bars size to content and the
+ * pane area takes the rest, whatever is hidden.
+ */
 body {
   margin: 0;
   height: 100vh;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--text);
 }
+
+body > header,
+body > footer,
+body > .banner { flex: 0 0 auto; }
+
+/* min-height:0 is load bearing: without it a flex item refuses to shrink below its
+   content, and the scrolling panes push the footer off the bottom of the window. */
+.panes { flex: 1 1 auto; min-height: 0; }
 
 .bar {
   display: flex;
@@ -307,6 +327,41 @@ kbd {
 .note-dialog button { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
 .note-dialog button.primary { border-color: var(--accent); }
 
+/* ---- Tree view ---- */
+
+.tree-head, .feature-head { cursor: pointer; user-select: none; }
+.tree-head:hover, .feature-head:hover { background: var(--panel-2); }
+.caret { display: inline-block; width: 12px; color: var(--muted); font-size: 10px; }
+
+.feature-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 18px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.feature-head span:nth-child(2) { color: var(--text); }
+.feature-head .doc-meta { margin-left: auto; }
+
+/* Indent nests the row under its feature without moving the status pills, which are
+   what the eye scans down. */
+.row.depth-1 { padding-left: 26px; }
+
+#view-mode {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#view-mode:hover { color: var(--text); }
+#view-mode[aria-pressed='true'] { color: var(--text); border-color: var(--accent); }
+
 /* ---- Reading tab: the standard and the walkthrough, beside the queue ---- */
 
 .tabs { display: flex; gap: 2px; }
@@ -327,13 +382,23 @@ kbd {
   border-color: var(--line);
 }
 
-/* The two panes share the queue's grid, so switching does not move the furniture. */
+/* Both panes occupy ONE row of the body grid, so adding a second view cannot change the
+   page's row template. Before this they were siblings of header and footer, and the body's
+   four-row template had five children to place. */
+.panes { min-height: 0; display: grid; }
+.panes > main { grid-area: 1 / 1; min-height: 0; }
+
 #standard-pane { display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
 
 /* `display` set on an element or class BEATS the hidden attribute's UA rule, so a
    pane given a display here stays on screen while claiming to be hidden. Both panes
    then render stacked. Needs the same specificity to win, not !important. */
-main[hidden], .filters[hidden], .counts[hidden] { display: none; }
+/* ID + attribute, because `#standard-pane { display: grid }` is an ID selector and beats a
+   plain `main[hidden]`. That mismatch shipped: the pane reported hidden === true while
+   computing display:grid, and rendered under the other one. */
+#review-pane[hidden], #standard-pane[hidden], .filters[hidden], .counts[hidden] {
+  display: none;
+}
 
 /* The two key-hint rows swap; the hidden one must actually go. */
 .keys { display: contents; }

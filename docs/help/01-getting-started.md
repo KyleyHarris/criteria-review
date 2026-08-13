@@ -65,8 +65,14 @@ The keyboard drives it. The bar along the bottom of the page is the whole cheat 
 | `n` | write a note on it |
 | `f` | fullscreen the recording |
 | `r` | reload from disk |
+| `t` | switch between the flat queue and the grouped tree |
 | `/` | jump to the filter box |
 | `s` | switch between the queue and this reading tab |
+
+Two ways to read the list, for two different questions. **Flat** is the queue: one ordered run,
+riskiest first, which is what a review pass wants. **Tree** groups by document and feature, which
+is what "where does this live, and what else is near it" wants. Groups collapse, and moving the
+selection into a collapsed group opens it rather than selecting something you cannot see.
 
 **Every action writes straight into the source markdown**, next to the scenario it is about.
 There is no database. Your notes are sourced intent, which is the one thing that cannot be

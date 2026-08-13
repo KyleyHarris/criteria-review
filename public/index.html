@@ -9,9 +9,11 @@
   <body>
     <header class="bar">
       <h1>Criteria review</h1>
-      <nav class="tabs" id="tabs">
-        <button data-tab="review" class="active">Review</button>
-        <button data-tab="standard">Standard</button>
+      <nav class="tabs" id="tabs" role="tablist" aria-label="Views">
+        <button id="tab-review" data-tab="review" class="active"
+                role="tab" aria-selected="true" aria-controls="review-pane">Review</button>
+        <button id="tab-standard" data-tab="standard"
+                role="tab" aria-selected="false" aria-controls="standard-pane">Standard</button>
       </nav>
       <div class="counts" id="counts"></div>
       <div class="spacer"></div>
@@ -35,12 +37,14 @@
           <option value="none">no recording</option>
         </select>
         <input id="search" type="search" placeholder="filter text" />
+        <button id="view-mode" type="button" title="Flat queue or grouped tree (t)">tree</button>
       </div>
     </header>
 
     <div id="banner" class="banner" hidden title="click to dismiss"></div>
 
-    <main id="review-pane">
+    <div class="panes">
+      <main id="review-pane" role="tabpanel" aria-labelledby="tab-review">
       <aside id="list" class="list" aria-label="Scenario queue"></aside>
 
       <section id="detail" class="detail">
@@ -53,12 +57,13 @@
       deciding whether a scenario is written correctly should not have to leave the
       page and go find a repository to read the rule.
     -->
-    <main id="standard-pane" hidden>
+      <main id="standard-pane" role="tabpanel" aria-labelledby="tab-standard" hidden>
       <aside id="doc-list" class="list" aria-label="Standard documents"></aside>
       <section id="doc" class="detail md">
         <p class="empty">Select a document.</p>
       </section>
-    </main>
+      </main>
+    </div>
 
     <footer class="help">
       <!--
@@ -73,6 +78,7 @@
         <span><kbd>n</kbd> note</span>
         <span><kbd>f</kbd> fullscreen</span>
         <span><kbd>r</kbd> reload</span>
+        <span><kbd>t</kbd> tree / flat</span>
         <span><kbd>/</kbd> search</span>
       </span>
       <span id="keys-standard" class="keys" hidden>

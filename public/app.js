@@ -35,6 +35,12 @@ const state = {
   tab: 'review',
   docs: [],
   doc: null,
+  // Flat is the queue: one ordered list, riskiest first, which is what a review PASS
+  // wants. Tree is the map: which document holds what, and which feature inside it,
+  // which is what someone answering "where does this live" wants. Different questions,
+  // so both, rather than a compromise that serves neither.
+  tree: false,
+  collapsed: new Set(),
 };
 
 /**
@@ -67,6 +73,8 @@ function saveViewState() {
         selected: scenarioKey(state.view[state.index]),
         tab: state.tab,
         doc: state.doc,
+        tree: state.tree,
+        collapsed: [...state.collapsed],
       })
     );
   } catch {
@@ -93,6 +101,8 @@ function restoreViewState() {
   // document who refreshes should be back on it, not at the top of the queue.
   state.doc = saved.doc ?? null;
   state.savedTab = saved.tab === 'standard' ? 'standard' : 'review';
+  state.tree = saved.tree === true;
+  state.collapsed = new Set(Array.isArray(saved.collapsed) ? saved.collapsed : []);
 }
 
 /**
@@ -237,26 +247,9 @@ function renderCounts() {
     .join('');
 }
 
-function renderList() {
-  // A header whenever the document changes, so the batch boundary is visible.
-  // Without it the grouping is real but invisible, and a reviewer cannot tell
-  // whether the next item continues the current feature or starts a new one.
-  let lastDoc = null;
-  $('#list').innerHTML = state.view
-    .map((s, i) => {
-      const doc = `${s.project} ${s.source}`;
-      let header = '';
-      if (doc !== lastDoc) {
-        lastDoc = doc;
-        const remaining = state.view.filter((x) => `${x.project} ${x.source}` === doc).length;
-        header = `<div class="doc-head">
-            <span class="doc-name">${escapeHtml(s.source.split('/').slice(-1)[0])}</span>
-            <span class="doc-meta">${escapeHtml(s.project)} · ${remaining}</span>
-          </div>`;
-      }
-      return (
-        header +
-        `<button class="row ${i === state.index ? 'active' : ''} ${
+/** One scenario row. Shared by both views so they cannot drift in how a scenario reads. */
+function scenarioRow(s, i, depth = 0) {
+  return `<button class="row depth-${depth} ${i === state.index ? 'active' : ''} ${
           state.highlight.has(s.id) ? 'highlighted' : ''
         }" data-i="${i}">
           <span class="row-top">${flagged(s) ? '<span class="looknow">LOOK</span>' : ''}${
@@ -271,10 +264,90 @@ function renderList() {
                 }">!</span>`
           }</span>
           <span class="row-title">${escapeHtml(s.title)}</span>
-        </button>`
-      );
+        </button>`;
+}
+
+/** The queue: one ordered list, with a header where the document changes. */
+function renderFlat() {
+  // A header whenever the document changes, so the batch boundary is visible. Without
+  // it the grouping is real but invisible, and a reviewer cannot tell whether the next
+  // item continues the current feature or starts a new one.
+  let lastDoc = null;
+  return state.view
+    .map((s, i) => {
+      const doc = `${s.project} ${s.source}`;
+      let header = '';
+      if (doc !== lastDoc) {
+        lastDoc = doc;
+        const remaining = state.view.filter((x) => `${x.project} ${x.source}` === doc).length;
+        header = `<div class="doc-head">
+            <span class="doc-name">${escapeHtml(s.source.split('/').slice(-1)[0])}</span>
+            <span class="doc-meta">${escapeHtml(s.project)} · ${remaining}</span>
+          </div>`;
+      }
+      return header + scenarioRow(s, i);
     })
     .join('');
+}
+
+/**
+ * The map: project, document, feature, scenario.
+ *
+ * Groups keep the order of FIRST APPEARANCE in the queue rather than sorting
+ * alphabetically, so the riskiest document is still at the top and the two views agree
+ * about what matters most. A tree that reordered the queue would quietly disagree with
+ * every other surface about where to start.
+ */
+function renderTree() {
+  const tree = new Map();
+  state.view.forEach((s, i) => {
+    const docKey = `${s.project}|${s.source}`;
+    if (!tree.has(docKey)) tree.set(docKey, { scenario: s, features: new Map() });
+    const featureKey = s.feature ?? '';
+    const features = tree.get(docKey).features;
+    if (!features.has(featureKey)) features.set(featureKey, []);
+    features.get(featureKey).push([s, i]);
+  });
+
+  const caret = (open) => `<span class="caret">${open ? '▾' : '▸'}</span>`;
+  const out = [];
+
+  for (const [docKey, { scenario, features }] of tree) {
+    const docOpen = !state.collapsed.has(docKey);
+    const count = [...features.values()].reduce((n, list) => n + list.length, 0);
+    out.push(
+      `<div class="doc-head tree-head" data-group="${escapeHtml(docKey)}">
+        ${caret(docOpen)}
+        <span class="doc-name">${escapeHtml(scenario.source.split('/').slice(-1)[0])}</span>
+        <span class="doc-meta">${escapeHtml(scenario.project)} · ${count}</span>
+      </div>`
+    );
+    if (!docOpen) continue;
+
+    for (const [featureKey, list] of features) {
+      const featKey = `${docKey}|${featureKey}`;
+      const featOpen = !state.collapsed.has(featKey);
+      // A document with no Feature headings would otherwise grow a nameless level that
+      // costs a click and says nothing.
+      const named = featureKey !== '';
+      if (named) {
+        out.push(
+          `<div class="feature-head" data-group="${escapeHtml(featKey)}">
+            ${caret(featOpen)}
+            <span>${escapeHtml(featureKey)}</span>
+            <span class="doc-meta">${list.length}</span>
+          </div>`
+        );
+        if (!featOpen) continue;
+      }
+      for (const [s, i] of list) out.push(scenarioRow(s, i, named ? 1 : 0));
+    }
+  }
+  return out.join('');
+}
+
+function renderList() {
+  $('#list').innerHTML = state.tree ? renderTree() : renderFlat();
   const active = $('#list .row.active');
   if (active) active.scrollIntoView({ block: 'nearest' });
 }
@@ -467,9 +540,21 @@ function openNoteEditor(s) {
   };
 }
 
+function revealSelected() {
+  if (!state.tree) return;
+  const s = state.view[state.index];
+  if (!s) return;
+  const docKey = `${s.project}|${s.source}`;
+  state.collapsed.delete(docKey);
+  state.collapsed.delete(`${docKey}|${s.feature ?? ''}`);
+}
+
 function move(delta) {
   if (!state.view.length) return;
   state.index = Math.min(Math.max(state.index + delta, 0), state.view.length - 1);
+  // Before painting, not after: a selection inside a collapsed group would be real and
+  // invisible, and the reviewer would answer whatever they could see instead.
+  revealSelected();
   renderList();
   renderDetail();
   saveViewState();
@@ -601,7 +686,11 @@ async function showTab(tab) {
   $('#review-pane').hidden = tab !== 'review';
   $('#standard-pane').hidden = tab !== 'standard';
   for (const b of document.querySelectorAll('#tabs button')) {
-    b.classList.toggle('active', b.dataset.tab === tab);
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    // The class is what a sighted reader sees; this is what everything else reads. Setting
+    // one without the other makes the tab strip a lie to half its audience.
+    b.setAttribute('aria-selected', String(on));
   }
   // The queue's filters steer the queue and mean nothing while reading, so they go
   // rather than sit there implying they apply to what is on screen. Same for the
@@ -635,6 +724,17 @@ function moveDoc(delta) {
   const next = Math.min(state.docs.length - 1, Math.max(0, (at === -1 ? 0 : at) + delta));
   openDoc(state.docs[next].name);
 }
+
+function setListMode(tree) {
+  state.tree = tree;
+  $('#view-mode').textContent = tree ? 'flat' : 'tree';
+  $('#view-mode').setAttribute('aria-pressed', String(tree));
+  revealSelected();
+  renderList();
+  saveViewState();
+}
+
+$('#view-mode').addEventListener('click', () => setListMode(!state.tree));
 
 $('#tabs').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-tab]');
@@ -673,7 +773,8 @@ document.addEventListener('keydown', (e) => {
     return;
   }
 
-  if (e.key === 'j') move(1);
+  if (e.key === 't') setListMode(!state.tree);
+  else if (e.key === 'j') move(1);
   else if (e.key === 'k') move(-1);
   else if (e.key === 'a') act('accepted');
   else if (e.key === 'v') act('verified');
@@ -690,6 +791,15 @@ document.addEventListener('keydown', (e) => {
 });
 
 $('#list').addEventListener('click', (e) => {
+  const group = e.target.closest('[data-group]');
+  if (group) {
+    const key = group.dataset.group;
+    if (state.collapsed.has(key)) state.collapsed.delete(key);
+    else state.collapsed.add(key);
+    renderList();
+    saveViewState();
+    return;
+  }
   const row = e.target.closest('.row');
   if (!row) return;
   state.index = Number(row.dataset.i);
@@ -781,6 +891,7 @@ function listen() {
 }
 
 restoreViewState();
+setListMode(state.tree);
 load()
   .then(listen)
   .then(() => {
