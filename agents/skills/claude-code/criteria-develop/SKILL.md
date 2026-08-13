@@ -1,6 +1,6 @@
 ---
 name: criteria-develop
-description: Implement the code for criteria the build does not yet satisfy, working from a failing journey to a passing one and walking the implementation against the scenario as you go. Refuses to change a criterion or a journey's clauses to make a test pass, and stops to ask when the criterion turns out to be wrong. Use when the architect says "implement these", "build this feature", "make these pass", or a plan holds scenarios carrying a write-the-code-to-match work order.
+description: Implement the code for criteria the build does not yet satisfy, test first: write the journey, watch it fail for the criterion's own reason, then build until it passes, walking the implementation against the scenario as you go. Refuses to change a criterion or a journey's clauses to make a test pass, and stops to ask when the criterion turns out to be wrong. Use when the architect says "implement these", "build this feature", "make these pass", or a plan holds scenarios carrying a write-the-code-to-match work order.
 ---
 
 # Implement against the criteria
@@ -46,16 +46,31 @@ the architect already wrote down.
 Confirm the criterion is confirmed. A scenario still marked `INFERRED` and unreviewed is a
 guess, and building code to satisfy a guess is expensive. Say so and offer `criteria-lookup`.
 
-## 2. Start from red
+## 2. Write the failing journey first
 
-Run the journey first. It must fail, and it must fail **for the reason the criterion names**.
+**Test first, always, and this skill owns writing it.** Not because TDD is a preference, but
+because of what the alternative produces: a journey written after the feature is written to match
+what was built, which is a description of your own code with an assertion wrapped round it. It
+passes on the first run, it will pass on every run, and it can never tell you that you built the
+wrong thing.
 
-- **No journey yet?** Write it first, or run `criteria-test` - a feature built without one has
-  nothing to say whether it works, and writing the test afterwards means writing it to match
-  what you built.
-- **Already green?** Then either the work is done or the journey is not proving what it claims.
-  Check by breaking the behaviour deliberately. A journey that stays green through that is the
-  finding, and it matters more than the feature.
+So before any implementation:
+
+1. Bind the journey to the criterion's clauses - generated, never retyped, one body per clause.
+2. **Run it, and watch it fail for the reason the criterion names.** Not a missing route, not a
+   compile error, not a selector typo: the specific outcome the scenario says should happen and
+   does not. A red that comes from scaffolding proves nothing and will go green for the wrong
+   reason.
+3. Only then write code.
+
+Do not hand this to `criteria-test`. That skill learns behaviour by driving a **running**
+application, which is exactly what does not exist yet - here there is nothing to observe, and the
+criterion is the only description of what should happen. Use its rules for binding, selectors and
+seeding; do not use its method.
+
+**Already green before you have written anything?** Then either the work is done, or the journey
+is not proving what it claims. Find out by breaking the behaviour deliberately. A journey that
+stays green through that is the finding, and it matters more than the feature.
 
 ## 3. Implement, walking the code against the scenario
 
@@ -78,9 +93,10 @@ While you work:
 
 ## 4. Green, then prove it means something
 
-A passing journey is not the end. Break the thing you just built, confirm the journey goes red
-on the right assertion, and restore. A feature whose test cannot fail has shipped untested with
-a green badge on it, which is worse than shipping it untested.
+A passing journey is not the end - though having watched it fail first, you already know it can.
+Confirm the same for each clause you added along the way: break the thing you just built,
+confirm the journey goes red **on the right assertion**, restore. A feature whose test cannot
+fail has shipped untested with a green badge on it, which is worse than shipping it untested.
 
 Then run the wider suite, not just this journey. The most common damage from a feature is to
 something nobody was looking at.

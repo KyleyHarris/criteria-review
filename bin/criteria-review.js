@@ -35,6 +35,7 @@ import {
   branchName,
   headCommit,
 } from '../src/media.js';
+import { indexVideos, videoFor } from '../src/videos.js';
 
 const CONFIG_DIR = join(homedir(), '.config', 'criteria-review');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
@@ -218,6 +219,9 @@ function usage() {
                                         set|add [IDs|-]    from args or piped text
                                         show | next | check | clear
                                         --task <name> --source <where it came from>
+  criteria-review manifest            evidence index: scenarios, clips, and the work item
+                                        --out <file>      write it (default: stdout)
+                                        --since <ref> | --all   scope, else the plan
   criteria-review queue               what needs a decision here, most important first
                                         --limit <n>       how many to list (default 10)
                                         --all             every registered project
@@ -580,6 +584,84 @@ async function readStdin() {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+/**
+ * A manifest tying the evidence to the work it was produced for.
+ *
+ * A video not tied to a named scenario is only a recording - the viewer cannot tell what it
+ * is meant to prove. A PACKAGE not tied to a work item has the same problem one level up:
+ * six months later nobody can say which delivery it belonged to, or what was agreed.
+ *
+ * So this emits the join: scenario id, its status, the clip that proves it, and the task and
+ * source the plan recorded. Scenarios with NO recording are listed rather than omitted,
+ * because a package that silently contains only what was filmed reads as complete.
+ */
+async function cmdManifest(args) {
+  const roots = await scopedRoots(args);
+  const root = roots[0]?.path ?? process.cwd();
+  const { results } = await scanAllRoots(roots);
+  const all = results.flatMap((r) => r.scenarios);
+
+  const plan = await loadPlan(root);
+  let scope = 'everything';
+  let chosen = all;
+  if (args.since) {
+    const narrowed = await narrowToChanged(results, roots, args.since);
+    chosen = narrowed.scenarios;
+    scope = `changed since ${args.since}`;
+  } else if (plan.found && !args.all) {
+    const { live, orphaned } = readPlan(plan, all);
+    chosen = live;
+    scope = 'the plan';
+    for (const id of orphaned) console.error(`warning: ${id} is in the plan but not in the documents`);
+  }
+
+  const index = await indexVideos(roots[0], (await loadConfig()).mediaRoot).catch(() => null);
+  const items = [];
+  for (const s of chosen) {
+    const hit = index && s.id ? await videoFor(index, s.id) : null;
+    items.push({
+      id: s.id,
+      title: s.title,
+      status: s.status,
+      persona: s.persona ?? null,
+      document: s.source,
+      // `how` matters: a fuzzy match is a guess that this clip shows THIS scenario, and a
+      // reader accepting evidence deserves to know which kind they were handed.
+      video: hit ? { file: basename(hit.file), how: hit.how } : null,
+    });
+  }
+
+  const manifest = {
+    task: plan.task ?? null,
+    source: plan.source ?? null,
+    project: roots[0]?.name ?? null,
+    branch: (await branchName(root)) ?? null,
+    scope,
+    standardVersion: STANDARD_VERSION,
+    recorded: new Date().toISOString().slice(0, 10),
+    counts: {
+      scenarios: items.length,
+      recorded: items.filter((i) => i.video).length,
+      missing: items.filter((i) => !i.video).length,
+    },
+    items,
+  };
+
+  const text = JSON.stringify(manifest, null, 2) + '\n';
+  if (args.out) {
+    const target = resolve(root, args.out);
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, text, 'utf8');
+    console.log(
+      `wrote ${args.out}: ${manifest.counts.scenarios} scenario(s) for ` +
+        `${manifest.task ?? '(no task)'}, ${manifest.counts.missing} with no recording`
+    );
+    for (const i of items.filter((x) => !x.video)) console.log(`  no recording: ${i.id} ${i.title}`);
+    return;
+  }
+  console.log(text);
+}
+
 async function cmdQueue(args) {
   const roots = await scopedRoots(args);
   const settings = await loadSettings(roots[0]?.path ?? process.cwd()).catch(() => null);
@@ -940,6 +1022,7 @@ async function main() {
 
   // The conversational surface: walk, read, answer. No browser, no running server.
   if (cmd === 'plan') return cmdPlan(args);
+  if (cmd === 'manifest') return cmdManifest(args);
   if (cmd === 'queue') return cmdQueue(args);
   if (cmd === 'show') return cmdShow(args);
   if (cmd === 'note' || cmd === 'accept' || cmd === 'verify' || cmd === 'reject') {

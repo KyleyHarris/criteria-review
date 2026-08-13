@@ -19,6 +19,7 @@ import { scanAll, toPosixPath } from './scan.js';
 import { setStatus, addNote, setFlag, clearNotes } from './write.js';
 import { indexVideos, videoFor, expectedPath } from './videos.js';
 import { listStandardDocs, readStandardDoc } from './standard.js';
+import { loadPlan } from './plan.js';
 import { branchName, repoName } from './media.js';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -175,6 +176,9 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
       for (const r of results) {
         for (const s of r.scenarios) dirs.add(dirOf(s.absolutePath));
       }
+      // Watch the plan too: an agent narrowing the batch should reach an open page the
+      // same way an edited scenario does.
+      for (const root of roots) dirs.add(join(root.path, '.criteria'));
       if (dirs.size) {
         stopWatching = startWatching([...dirs], () => {
           for (const res of clients) res.write('event: changed\ndata: 1\n\n');
@@ -269,6 +273,20 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
       if (req.method === 'GET' && url.pathname === '/api/scenarios') {
         const { results, missing } = await scanAll(roots);
 
+        // Which scenarios the current task covers, per project. Per project rather than
+        // globally because each worktree is its own registered entry with its own branch
+        // and its own plan - which is what lets several people work at once without their
+        // batches bleeding into each other's page.
+        const planned = new Map();
+        for (const root of roots) {
+          try {
+            const plan = await loadPlan(root.path);
+            planned.set(root.name, new Set(plan.ids ?? []));
+          } catch {
+            planned.set(root.name, new Set());
+          }
+        }
+
         // One index per project, reused across that project's scenarios.
         const indexes = new Map();
         for (const root of roots) {
@@ -291,6 +309,7 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
             // repo-relative path shown in a web page and copied into scripts, so it
             // should read the same whoever is looking at it. Display only, unlike
             // `source`, which reaches a committed artefact.
+            inPlan: planned.get(s.project)?.has(s.id) ?? false,
             videoExpected: toPosixPath(
               relative(
                 roots.find((r) => r.name === s.project)?.path ?? '',

@@ -162,6 +162,7 @@ function matchesStatus(s, filter) {
   if (filter === 'looknow') return flagged(s);
   if (filter === 'review') return needsAgent(s);
   if (filter === 'noted') return (s.notes || []).length > 0;
+  if (filter === 'plan') return s.inPlan === true;
   if (filter === 'needs-review') return !s.id || !s.status || s.status !== 'accepted';
   return s.status === filter;
 }

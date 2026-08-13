@@ -308,3 +308,34 @@ does is edit the status list and then file a bug when nothing changes.
 
 A team that genuinely needs different statuses needs a change to the tool, which should come back
 as a pull request rather than diverge silently in a copy.
+
+---
+
+## D-011. Video asset promotion through the pipeline: deferred, with the shape recorded
+
+**Date:** 2026-08-13
+**Status:** deferred, not built
+
+Raised and explicitly not taken today. Recorded so it is not re-derived from scratch, and so
+nothing is built that would make it harder later.
+
+The shape as discussed: a build gateway identifies which scenarios are **new in this build and
+have no recording**, so video production becomes a piece of visible work rather than something
+noticed at delivery. Development builds would write to a development asset folder, releases to a
+release folder, and each release would publish its new videos to a central location - so the
+master library grows by promotion rather than by someone remembering to copy files.
+
+**Why it is not a skill.** It is pipeline plumbing, not a judgement an agent makes. The judgement
+it would depend on already exists: a scenario with no journey is a coverage gap, and a scenario
+with a journey and no recording is unproduced evidence. Both are computable.
+
+**What already exists that it would build on**, none of which was designed for it and all of which
+happens to fit: `--since <ref>` names what a branch or release added; `manifest` already reports
+every scenario in scope with its clip or the absence of one; and the video convention is one file
+per scenario in a fixed directory, which is what makes promotion between folders a copy rather
+than a rename.
+
+**What would need deciding when it is built:** whether the central library is addressed by release
+or stays flat with one file per scenario - the current convention says one file per scenario and a
+new run replaces the old, which is deliberately incompatible with keeping a clip per release.
+That is the real design question, and it is not urgent while there is one library.

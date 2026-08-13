@@ -101,18 +101,36 @@ Documents first, clips in the order the acceptance document introduces their sce
 - **Label it with the date of the recording, not today's.** The package is evidence from a
   moment.
 
-**Known gap, and say it rather than hiding it:** the tool has no `package` command yet, so this
-step is assembled by a project script or by hand. The standard's own rule is that a package
-assembled by hand gets skipped exactly when the delivery is under pressure. If you are doing it
-by hand, say so in the report and recommend the script.
+**Write the manifest**, which is what ties the package to the work rather than leaving it a
+folder of clips:
+
+```bash
+npx criteria-review manifest --out <target>/manifest.json
+```
+
+It records the task and its source - the issue, the work item, the URL the plan was built from -
+alongside every scenario, its status, and the clip that proves it. **Scenarios with no recording
+are listed rather than omitted**, so a package cannot read as complete when it is not, and a
+fuzzy-matched clip is marked as matched rather than named, because that is a guess that this
+video shows this scenario.
+
+A video not tied to a named scenario is only a recording. A package not tied to a work item has
+the same problem one level up: six months later nobody can say which delivery it belonged to.
+
+**Known gap, and say it rather than hiding it:** the tool writes the manifest but does not
+assemble the folder - the copying, renaming and document conversion is still a project script or
+hand work. The standard's own rule is that a package assembled by hand gets skipped exactly when
+the delivery is under pressure. If you are doing it by hand, say so in the report and recommend
+scripting it.
 
 ## 6. Report
 
 ```
-6 scenarios in scope
+6 scenarios in scope for "Till hardening" (issue #412)
   5 recorded, checked, packaged to <path>
   1 has no journey - LOCK-OPEN-002 - not recorded, and not covered
-  package assembled by hand (no package command); recommend scripting it
+  manifest.json written: 6 scenarios, 1 with no recording
+  folder assembled by hand (no package command); recommend scripting it
 ```
 
 Never promote a status because a recording exists. A video is what lets a person promote one
