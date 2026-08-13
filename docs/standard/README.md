@@ -1,6 +1,6 @@
 # The acceptance-criteria standard
 
-**Standard version 1.1.2.** This directory is the source of truth for how acceptance criteria
+**Standard version 1.2.0.** This directory is the source of truth for how acceptance criteria
 are written, confirmed, cited by tests, and gated. Consumer projects hold pointers and their own
 instance data. They do not restate it. See `../decisions.md` D-001.
 

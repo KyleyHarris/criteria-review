@@ -339,3 +339,41 @@ than a rename.
 or stays flat with one file per scenario - the current convention says one file per scenario and a
 new run replaces the old, which is deliberately incompatible with keeping a clip per release.
 That is the real design question, and it is not urgent while there is one library.
+
+---
+
+## D-012. The glossary, and why the binding key keeps the marker
+
+**Date:** 2026-08-13
+**Status:** decided
+**Standard version:** 1.2.0
+
+A criterion found in a real document described "organization types" after the product had renamed
+them operation types, and another spelled "Member" after that concept became "Company". Nothing
+caught either, because the words are prose and prose always parses.
+
+The rule already existed one layer down: a string containing a domain noun is a finding, and
+carries a term resolved at render time. Criteria are exactly that class of text and were the
+surface it had never been applied to. So criteria name concepts - `{loginGroup}` - and the words
+resolve when the criterion is read.
+
+The manifest mirrors the application-side registry field for field, because two dialects of
+"term" inside one organisation would be drift on a new axis rather than a fix for it.
+
+**The decision the feature turns on: the emitted artefact carries the RAW clause as the binding
+key and a rendered string beside it.** A journey supplies one body per clause keyed on the raw
+text, so renaming a term changes only the display fields - no clause key moves and no journey
+breaks. Emitting the rendered words as the key would make every rename a mechanical edit across
+every citing journey, which is the exact cost a glossary exists to remove. Verified by renaming a
+term and diffing the regenerated artefact: `titleDisplay` and `stepsDisplay` only.
+
+**The tool owns the format, never the content.** A project's vocabulary already lives in a typed
+registry, a database or a specification; a hand-kept copy here would reintroduce the drift one
+layer over. The project writes a generator, the tool validates and refuses.
+
+**Alternative weighed.** *Render at parse time and store only the resolved text.* Rejected: it
+loses the key, so the next rename is a document sweep - the thing being fixed.
+
+**Note on this entry's own release.** `v0.7.0` shipped the feature but its tag message claimed
+standard 1.2.0 while `STANDARD_VERSION` still read 1.1.2. Corrected in `v0.7.1` rather than by
+moving a published tag.
