@@ -270,7 +270,7 @@ function usage() {
   criteria-review unflag <ID>         clear LOOK NOW
   criteria-review standard eject <dir> copy the standard into this project to own it
   criteria-review version             package and standard version (also --version)
-  criteria-review guide [skill]       print the agent instruction set
+  criteria-review guide [skill]       print the agent instruction set (see also AGENTS.md)
   criteria-review plan [verb]         the scenarios this task covers (ids only):
                                         set|add [IDs|-]    from args or piped text
                                         show | next | check | clear
