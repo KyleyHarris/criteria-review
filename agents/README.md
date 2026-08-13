@@ -171,6 +171,7 @@ observed wrongly. Same artefacts, opposite meaning.
 
 | Skill | For |
 |---|---|
+| [`criteria-help`](skills/claude-code/criteria-help/SKILL.md) | **Start here.** Asks what you are doing and routes to the right skill, by situation rather than by name |
 | [`criteria-architect`](skills/claude-code/criteria-architect/SKILL.md) | **Forward.** Vet the request, design the tier 1 spec and tier 2 shortlist, write the brief, save the declaration where the team takes work from |
 | [`criteria-backfill`](skills/claude-code/criteria-backfill/SKILL.md) | **Reverse.** Reverse engineer a legacy area into criteria and characterisation journeys from observation, intent inferred and unconfirmed |
 | [`criteria-plan`](skills/claude-code/criteria-plan/SKILL.md) | Turning a task into a working list of scenario ids: ask, verify, prepare, then act |
