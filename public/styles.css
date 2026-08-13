@@ -327,6 +327,21 @@ kbd {
 .note-dialog button { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
 .note-dialog button.primary { border-color: var(--accent); }
 
+/* The glossary toggle. Quiet by default: it is an inspection affordance, not an action, and
+   it must not compete with Accept and Verified for the eye. */
+.term-toggle {
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.term-toggle:hover { color: var(--text); border-color: var(--accent); }
+
 /* ---- Tree view ---- */
 
 .tree-head, .feature-head { cursor: pointer; user-select: none; }

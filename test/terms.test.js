@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderTerms, variantOf, validateTerms, missingTerm } from '../src/terms.js';
+import { renderTerms, variantOf, validateTerms, missingTerm, findSpelledTerms } from '../src/terms.js';
 import { buildModel, renderTypeScript } from '../src/emit.js';
 import { parseDocument } from '../src/parse.js';
 
@@ -133,4 +133,77 @@ test('the rendered module carries both forms', () => {
   assert.match(ts, /titleDisplay: 'A Company must have an owner'/);
   assert.match(ts, /stepsDisplay: \[/);
   assert.match(ts, /'Given a new \{loginGroup\}'/);
+});
+
+// The worked example in examples/glossary is a real project the tool reads, so these run the
+// actual pipeline over it rather than over a fixture invented for the test. If the example
+// stops being a valid project, or the rules change under it, these go red - which is what
+// stops a documented example rotting into something that no longer works.
+
+test('the worked example is a valid glossary project', async () => {
+  const { loadTerms } = await import('../src/terms.js');
+  const { loadSettings } = await import('../src/config.js');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'examples', 'glossary');
+  const settings = await loadSettings(root);
+  assert.equal(settings.terms, 'acceptance/terms.json');
+
+  const { terms, found } = await loadTerms(join(root, settings.terms));
+  assert.ok(found);
+  // Every term carries what the format requires; loadTerms throws otherwise.
+  assert.ok(Object.keys(terms).length >= 5);
+  assert.equal(terms.vendor.casing, 'preserve');
+  assert.equal(terms.premises.possessive, "Business'");
+});
+
+test('every marker in the worked example resolves', async () => {
+  const { scanProject } = await import('../src/scan.js');
+  const { loadTerms } = await import('../src/terms.js');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'examples', 'glossary');
+  const { scenarios } = await scanProject(root, 'example');
+  const { terms } = await loadTerms(join(root, 'acceptance/terms.json'));
+
+  assert.ok(scenarios.length >= 4, 'the example should hold several scenarios');
+  for (const s of scenarios) {
+    for (const text of [s.title, ...s.steps]) {
+      const { missing } = renderTerms(text, terms);
+      assert.deepEqual(missing, [], `${s.id}: ${text}`);
+    }
+  }
+});
+
+test('the worked example names its concepts rather than spelling them', async () => {
+  const { scanProject } = await import('../src/scan.js');
+  const { loadTerms, findSpelledTerms } = await import('../src/terms.js');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+
+  const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'examples', 'glossary');
+  const { scenarios } = await scanProject(root, 'example');
+  const { terms } = await loadTerms(join(root, 'acceptance/terms.json'));
+
+  // The example is what a correct document looks like, so it must survive its own rule: not
+  // one sentence spells a word the glossary owns.
+  const spelled = scenarios.flatMap((s) =>
+    [s.title, ...s.steps].flatMap((t) => findSpelledTerms(t, terms).map((h) => `${s.id}: ${h.spelled}`))
+  );
+  assert.deepEqual(spelled, []);
+});
+
+test('a spelled term is found however it is cased, and never inside a marker', () => {
+  const terms = { loginGroup: { value: 'Company', plural: 'Companies', description: 'x' } };
+
+  // Catches the drift the glossary exists to prevent, on the day it is written.
+  assert.deepEqual(findSpelledTerms('A Company must have an owner', terms), [
+    { key: 'loginGroup', spelled: 'Company' },
+  ]);
+  assert.equal(findSpelledTerms('the company is refused', terms).length, 1);
+  assert.deepEqual(findSpelledTerms('A {loginGroup} must have an owner', terms), []);
+  // Whole words only: a term must not match inside a longer word.
+  assert.deepEqual(findSpelledTerms('Accompany the request', terms), []);
 });

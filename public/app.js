@@ -45,6 +45,10 @@ const state = {
   // its original script while its data refreshes live, so the two can silently disagree
   // about how a scenario should render.
   version: null,
+  // Inspection mode, not a preference: a reviewer occasionally needs to see WHICH term a
+  // sentence used rather than the word it renders to. Deliberately not persisted - display
+  // is the right default every time a page is opened.
+  rawTerms: false,
 };
 
 /**
@@ -442,6 +446,19 @@ function renderVideo(s) {
   </div>`;
 }
 
+/**
+ * Does this scenario name any concept through the glossary?
+ *
+ * Compared against the RENDERED form rather than by looking for braces, so a scenario whose
+ * prose happens to contain a brace does not grow a toggle that would do nothing. The offer
+ * only appears where there is something behind it.
+ */
+function usesTerms(s) {
+  if (!s.stepsDisplay && !s.titleDisplay) return false;
+  if ((s.titleDisplay ?? s.title) !== s.title) return true;
+  return (s.steps || []).some((raw, i) => (s.stepsDisplay || [])[i] !== raw);
+}
+
 function renderDetail() {
   const s = state.view[state.index];
   if (!s) {
@@ -471,12 +488,21 @@ function renderDetail() {
       <code class="id">${s.id || '(no id)'}</code>
       ${s.persona ? `<span class="persona">${escapeHtml(s.persona)}</span>` : ''}
     </div>
-    <h2>${escapeHtml(s.titleDisplay ?? s.title)}</h2>
+    <h2>${escapeHtml(state.rawTerms ? s.title : (s.titleDisplay ?? s.title))}</h2>
     <p class="where">${escapeHtml(s.project)} · ${escapeHtml(s.source)}${
       s.feature ? ` · <em>${escapeHtml(s.feature)}</em>` : ''
     }</p>
     ${intent}
-    <pre class="steps">${(s.stepsDisplay ?? s.steps).map(escapeHtml).join('\n')}</pre>
+    ${
+      usesTerms(s)
+        ? `<button class="term-toggle" data-act="toggle-raw">${
+            state.rawTerms ? 'showing glossary keys - show words' : 'show glossary keys'
+          }</button>`
+        : ''
+    }
+    <pre class="steps">${(state.rawTerms ? s.steps : (s.stepsDisplay ?? s.steps))
+      .map(escapeHtml)
+      .join('\n')}</pre>
     ${renderNotes(s)}
     ${renderVideo(s)}
     ${
@@ -861,6 +887,11 @@ $('#detail').addEventListener('click', (e) => {
     return;
   }
   const b = e.target.closest('button[data-act]');
+  if (b?.dataset.act === 'toggle-raw') {
+    state.rawTerms = !state.rawTerms;
+    renderDetail();
+    return;
+  }
   if (b) act(b.dataset.act);
 });
 

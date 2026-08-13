@@ -122,6 +122,37 @@ Not everything is. Screen-local copy, verbs, and words with no domain meaning st
 glossary that swallows ordinary English makes documents unreadable and buys nothing, because
 nobody renames "the".
 
+## Catching a word that should have been a term
+
+`criteria-review terms check` reports two different things, and they need different responses.
+
+An **unresolved marker** is a broken criterion: it fails immediately, and generation refuses.
+
+A **spelled term** is a sentence that says the word where it should name the concept. Reported,
+and not fatal by default - on the day a team adopts a glossary every existing document spells
+its terms, and a gate that fails everything on day one is a gate that gets switched off.
+`--strict` is what a team turns on once it has migrated.
+
+```
+3 place(s) spell a term instead of naming it:
+  "Company" -> {loginGroup}  in CO-TYPES-002 (member-administration/company-list-acceptance.md)
+      Given a Company with two sites
+```
+
+Whether a given word is the domain concept or ordinary prose is a judgement, so this reports
+rather than rewrites. The question is **"who owns this word"**, not "is this string correct".
+
+## A worked example
+
+`examples/glossary/` in this package is a real project rather than a snippet: a manifest, a
+document using every variant, a `preserve`-cased proper noun, an authored possessive. The test
+suite runs the actual pipeline over it, so an example that stopped working would fail the build
+rather than quietly rot.
+
+```bash
+criteria-review add <package>/examples/glossary glossary-example
+```
+
 ## When a term changes
 
 1. Change it at its real source, and regenerate the manifest.

@@ -14,7 +14,7 @@ import { createReviewServer } from '../src/server.js';
 import { scanAll, changedSince } from '../src/scan.js';
 import { loadSettings, PROJECT_CONFIG } from '../src/config.js';
 import { ejectStandard } from '../src/standard.js';
-import { loadTerms, renderTerms, variantOf } from '../src/terms.js';
+import { loadTerms, renderTerms, variantOf, findSpelledTerms } from '../src/terms.js';
 import {
   loadPlan,
   savePlan,
@@ -86,6 +86,8 @@ function parseArgs(argv) {
     else if (a === '--format') args.format = argv[++i];
     // Verify rather than write: the gate's half of generation. See cmdGenerate.
     else if (a === '--check') args.check = true;
+    // Makes a spelled term fail `terms check`, for a team that has finished migrating.
+    else if (a === '--strict') args.strict = true;
     else if (a === '--filter') args.filter = argv[++i];
     else if (a === '--highlight') args.highlight = argv[++i];
     else if (a === '--focus') args.focus = argv[++i];
@@ -223,7 +225,9 @@ function usage() {
                                         show | next | check | clear
                                         --task <name>      repeatable: several in flight
                                         --source <where it came from>
-  criteria-review terms [show|check]  the glossary: what it defines and what documents use
+  criteria-review terms [show|check]  the glossary: what it defines, what documents use,
+                                      and what spells a term instead of naming it
+                                        --strict          a spelled term fails the check
   criteria-review manifest            evidence index: scenarios, clips, and the work item
                                         --out <file>      write it (default: stdout)
                                         --since <ref> | --all   scope, else the plan
@@ -696,10 +700,16 @@ async function cmdTerms(args) {
   // half happened.
   const used = new Map();
   const unresolved = [];
+  const spelled = [];
   for (const s of scenarios) {
     for (const text of [s.title, ...s.steps]) {
       const { missing } = renderTerms(text, terms);
       for (const ref of missing) unresolved.push({ ref, id: s.id, source: s.source });
+      // A criterion that SPELLS a word the glossary owns is the drift this exists to
+      // prevent, caught the day it is written rather than at the next rename.
+      for (const hit of findSpelledTerms(text, terms)) {
+        spelled.push({ ...hit, id: s.id, source: s.source, text });
+      }
       for (const m of String(text).matchAll(/\{([a-zA-Z][\w]*)(?:\.[a-zA-Z]+)?\}/g)) {
         used.set(m[1], (used.get(m[1]) ?? 0) + 1);
       }
@@ -707,8 +717,22 @@ async function cmdTerms(args) {
   }
 
   if (verb === 'check') {
+    if (spelled.length) {
+      // Reported, and NOT fatal by default. On the day a team adopts a glossary every
+      // existing document spells its terms, and a gate that fails everything on day one is
+      // a gate that gets switched off. `--strict` is what a team turns on once migrated.
+      console.log(`${spelled.length} place(s) spell a term instead of naming it:`);
+      for (const h of spelled) {
+        console.log(`  "${h.spelled}" -> {${h.key}}  in ${h.id} (${h.source})`);
+        console.log(`      ${h.text.trim().slice(0, 96)}`);
+      }
+      console.log('');
+    }
     if (!unresolved.length) {
       console.log(`glossary ok: ${Object.keys(terms).length} terms, every marker resolves`);
+      // Only --strict makes a spelled term fail, so adopting is a migration rather than a
+      // wall, and finishing the migration is something a team opts into.
+      if (spelled.length && args.strict) process.exit(1);
       return;
     }
     console.error(`${unresolved.length} unresolved term reference(s):`);

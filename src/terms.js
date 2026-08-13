@@ -85,6 +85,38 @@ export function renderTerms(text, terms = {}) {
   return { rendered, missing };
 }
 
+/**
+ * Text that SPELLS a word the glossary owns, instead of naming the concept.
+ *
+ * This is the drift the glossary exists to prevent, caught at the moment it is introduced
+ * rather than at the next rename. A criterion reading "a Company must have an owner" looks
+ * perfectly correct today and is silently wrong the day Company becomes something else.
+ *
+ * Matched case-insensitively on whole words against `value` and `plural`, because a
+ * criterion writing "company" mid-sentence means the term just as much as one writing it
+ * capitalised. Reported rather than corrected: whether a word names the domain concept or is
+ * ordinary prose is a judgement, and a glossary that swallows ordinary English makes
+ * documents unreadable.
+ *
+ * Text already inside a marker cannot match, because markers hold KEYS and keys name the
+ * internal domain rather than the visible word.
+ */
+export function findSpelledTerms(text, terms = {}) {
+  const bare = String(text ?? '').replace(MARKER, ' ');
+  const hits = [];
+  for (const [key, term] of Object.entries(terms)) {
+    for (const form of [term.value, term.plural]) {
+      if (!form) continue;
+      const pattern = new RegExp(`\\b${form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
+      if (pattern.test(bare)) {
+        hits.push({ key, spelled: form });
+        break;
+      }
+    }
+  }
+  return hits;
+}
+
 /** Every problem in a manifest, reported together rather than one run at a time. */
 export function validateTerms(terms) {
   const problems = [];

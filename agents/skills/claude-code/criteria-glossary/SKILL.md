@@ -86,7 +86,22 @@ tool refuses without:
 
 ```bash
 npx criteria-review terms          # the glossary, its derived forms, and usage counts
-npx criteria-review terms check    # every marker in every document resolves; non-zero if not
+npx criteria-review terms check    # markers resolve, AND what spells a term instead of naming it
+npx criteria-review terms check --strict   # a spelled term fails, once you have migrated
+```
+
+`check` reports two different things, and they need different responses. An **unresolved
+marker** is a broken criterion and fails immediately. A **spelled term** is a sentence saying
+the word where it should name the concept - reported but not fatal, because on the day a team
+adopts a glossary every existing document spells its terms, and a gate that fails everything on
+day one is a gate that gets switched off. `--strict` is what a team turns on once migrated.
+
+A worked example lives in the tool at `examples/glossary/` - a real project with a manifest and
+a document using every variant, including a `preserve`-cased proper noun and an authored
+possessive. Register it to see the shape:
+
+```bash
+npx criteria-review add <path-to-package>/examples/glossary glossary-example
 ```
 
 Read the usage report for two findings it surfaces without being asked:

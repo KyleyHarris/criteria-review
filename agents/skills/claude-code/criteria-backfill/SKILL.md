@@ -161,6 +161,53 @@ nothing writes, an affordance with nothing behind it - record it in the anomaly 
 the scenario without a journey. Writing a journey that fakes its way into an unreachable state
 would produce a green test for something that cannot happen.
 
+## Terms: name the concept, do not spell the word
+
+Before writing a scenario, look at the glossary:
+
+```bash
+npx criteria-review terms          # what exists, and how each one is used
+```
+
+Every domain noun you are about to write goes through it. A criterion reading "a Company must
+have an owner" is correct today and silently wrong the day Company becomes something else, and
+nothing can notice because the words are prose:
+
+```gherkin
+Scenario: A {loginGroup} must have at least one {operationType}
+  When staff save it with no {operationType.lower} chosen
+```
+
+Variants derive - `{term.lower}`, `{term.plural}`, `{term.lowerPlural}`, `{term.possessive}`.
+
+**When a word looks like a term and is not in the glossary, stop and ask.** Do not invent an
+entry and do not quietly spell the word instead. Present it as a question with a recommendation:
+
+```
+"Operation Type" appears in 4 of these scenarios and is not in the glossary.
+It looks like a domain concept the product could rename.
+  key:         operationType   (names the internal domain, not the current word)
+  value:       Operation Type
+  plural:      Operation Types
+  description: What a company does
+Add it? It has to be added at the real source and re-generated - see criteria-glossary.
+```
+
+The judgement is **"who owns this word"**, not "is this string correct". A word naming a domain
+concept - the organisation, the person, the operation, the report, the status - belongs to the
+glossary. Text genuinely about this screen and nothing else does not, and a glossary that
+swallows ordinary English makes documents unreadable and buys nothing.
+
+Check before handing over:
+
+```bash
+npx criteria-review terms check    # unresolved markers fail; spelled terms are reported
+```
+
+A **spelled term** in that report is a sentence of yours that says the word where it should have
+named the concept. Fix those before presenting the document; they are the drift this exists to
+prevent, and they are cheapest to fix the minute they are written.
+
 ## 5. Hand it on
 
 Say what was produced and what is owed:

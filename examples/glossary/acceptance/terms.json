@@ -1,0 +1,29 @@
+{
+  "operator": {
+    "value": "Cashier",
+    "plural": "Cashiers",
+    "description": "The person serving customers at a till. Was 'Clerk' until 2026-03."
+  },
+  "till": {
+    "value": "Register",
+    "plural": "Registers",
+    "description": "The physical terminal a cashier serves from"
+  },
+  "session": {
+    "value": "Shift",
+    "plural": "Shifts",
+    "description": "One period of trading worked at a register, by one or more cashiers"
+  },
+  "vendor": {
+    "value": "iPOS",
+    "plural": "iPOS terminals",
+    "description": "The terminal software supplier",
+    "casing": "preserve"
+  },
+  "premises": {
+    "value": "Business",
+    "plural": "Businesses",
+    "description": "The shop a register belongs to",
+    "possessive": "Business'"
+  }
+}
