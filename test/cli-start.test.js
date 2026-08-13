@@ -71,3 +71,50 @@ test('--version prints package and standard without starting anything', async ()
   assert.match(stdout, /^criteria-review \d+\.\d+\.\d+ \(standard \d+\.\d+\.\d+\)/);
   await rm(home, { recursive: true, force: true });
 });
+
+test('status distinguishes down, current, and stale', async (t) => {
+  const home = await mkdtemp(join(tmpdir(), 'criteria-home-'));
+  const port = '4398';
+  t.after(async () => {
+    await cli(['stop', '--port', port], home).catch(() => {});
+    await rm(home, { recursive: true, force: true });
+  });
+
+  // Down is 1. A caller branching on truthiness treats it as "needs action", which is right.
+  await assert.rejects(
+    () => cli(['status', '--port', port], home),
+    (err) => {
+      assert.equal(err.code, 1);
+      assert.match(err.stdout, /not running/);
+      return true;
+    }
+  );
+
+  await cli(['start', '--port', port, '--no-open'], home);
+
+  // Running and current is 0, and it reports WHAT is running rather than only that it is.
+  const ok = await cli(['status', '--port', port], home);
+  assert.match(ok.stdout, /running on http:\/\/127\.0\.0\.1:4398/);
+  assert.match(ok.stdout, /\d+\.\d+\.\d+ \(standard \d+\.\d+\.\d+\)/);
+});
+
+test('the running server reports its own version, not the pidfile writer\'s', async (t) => {
+  const home = await mkdtemp(join(tmpdir(), 'criteria-home-'));
+  const port = 4397;
+  t.after(async () => {
+    await cli(['stop', '--port', String(port)], home).catch(() => {});
+    await rm(home, { recursive: true, force: true });
+  });
+
+  await cli(['start', '--port', String(port), '--no-open'], home);
+
+  // Asked of the PROCESS. A pidfile records what the CLI that started it believed, which is
+  // exactly the thing that goes stale after an upgrade - so the check has to reach the
+  // server itself or it would confirm its own assumption.
+  const res = await fetch(`http://127.0.0.1:${port}/api/version`);
+  const body = await res.json();
+  assert.match(body.package, /^\d+\.\d+\.\d+$/);
+  assert.match(body.standard, /^\d+\.\d+\.\d+$/);
+  assert.ok(body.pid > 0);
+  assert.ok(Date.parse(body.started) > 0);
+});

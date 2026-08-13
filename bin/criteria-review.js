@@ -121,14 +121,65 @@ async function runningPid() {
   }
 }
 
+/**
+ * Is it running, and is what is running the same version as what is installed?
+ *
+ * Three states rather than two, because "running" was never the whole question. A server
+ * started before an upgrade keeps serving its original code indefinitely - the idle timeout
+ * is two hours and the page refreshes its DATA without ever reloading its script - so an
+ * agent that only asked "is it up" would leave a stale process serving a stale page and have
+ * no way to know.
+ *
+ *   0  running, and current
+ *   1  not running
+ *   2  running, but older than what is installed - restart it
+ *
+ * Exit 2 is deliberately non-zero so `criteria-review status || criteria-review restart` is
+ * a correct idiom for both the down case and the stale case.
+ */
 async function cmdStatus() {
   const live = await runningPid();
   if (!live) {
     console.log('criteria-review: not running');
     return 1;
   }
-  console.log(`criteria-review: running on ${live.url} (pid ${live.pid})`);
+
+  const mine = await installedVersion();
+  let running = null;
+  try {
+    const res = await fetch(new URL('/api/version', live.url), { signal: AbortSignal.timeout(2000) });
+    if (res.ok) running = await res.json();
+  } catch {
+    // Answered the pidfile but not HTTP: report what is known rather than guessing.
+  }
+
+  if (!running) {
+    console.log(`criteria-review: running on ${live.url} (pid ${live.pid}), version unknown`);
+    console.log('  it did not answer /api/version - it predates this check. Restart it.');
+    return 2;
+  }
+
+  console.log(
+    `criteria-review: running on ${live.url} (pid ${running.pid}) - ` +
+      `${running.package} (standard ${running.standard}), started ${running.started.slice(0, 16).replace('T', ' ')}`
+  );
+
+  if (running.package !== mine) {
+    console.log(
+      `  STALE: ${mine} is installed. The running process still serves ${running.package}.\n` +
+        '  Restart it:  criteria-review restart'
+    );
+    return 2;
+  }
   return 0;
+}
+
+/** The version of the code this command is running from. */
+async function installedVersion() {
+  const pkg = JSON.parse(
+    await readFile(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8')
+  );
+  return pkg.version;
 }
 
 async function cmdStop() {
@@ -1053,7 +1104,18 @@ async function main() {
     await saveConfig(cfg);
     console.log(`${replaced ? 're-registered' : 'registered'} ${name} -> ${path}`);
 
-    if (!(await runningPid())) await cmdStart(args);
+    // `here` is the command people actually type, and it is documented as idempotent and
+    // safe to run on entering a repo. So it is the right place to retire a stale server:
+    // leaving one running would serve the previous release's page to somebody who just
+    // upgraded, and the symptom - a feature that looks broken - says nothing about the cause.
+    const state = await cmdStatus();
+    if (state === 2) {
+      console.log('restarting: the running server is older than what is installed');
+      await cmdStop();
+      await cmdStart(args);
+    } else if (state === 1) {
+      await cmdStart(args);
+    }
     const live = await runningPid();
     if (live) {
       await fetch(new URL('/api/push', live.url), {

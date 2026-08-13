@@ -26,6 +26,12 @@ import { loadTerms, renderTerms } from './terms.js';
 import { branchName, repoName } from './media.js';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
+const PKG = JSON.parse(
+  await readFile(join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8')
+);
+
+/** When this process started, so a stale server can be reported with its age. */
+const STARTED = new Date().toISOString();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -197,6 +203,19 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
       armIdle();
       const roots = await getRoots();
       const url = new URL(req.url ?? '/', 'http://localhost');
+
+      // What is ACTUALLY running, asked of the process rather than inferred from a pidfile
+      // the CLI wrote. A long-lived server keeps serving the code it started with, so after
+      // an upgrade the binary on PATH and the process answering the browser are different
+      // versions - and nothing said so.
+      if (req.method === 'GET' && url.pathname === '/api/version') {
+        return json(res, 200, {
+          package: PKG.version,
+          standard: STANDARD_VERSION,
+          pid: process.pid,
+          started: STARTED,
+        });
+      }
 
       if (req.method === 'GET' && url.pathname === '/api/events') {
         res.writeHead(200, {
