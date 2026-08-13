@@ -95,6 +95,19 @@ a network download inside the check and lets a missing dependency read as a pass
 `node_modules/.bin/criteria-review`, falls back to `PATH`, and fails when neither exists. See
 `docs/standard/emit-contract.md`.
 
+### 5. A plan holds ids; the documents hold everything else
+
+`criteria-review plan` records which scenarios a task covers and nothing more - no titles, no
+statuses, no todo list of its own. Every other fact is read live, so nothing here can go stale
+and disagree with a document.
+
+There is therefore **no "mark it done"**. A scenario is done when its status moved and a
+journey cites it, which is a fact rather than a tick. `plan check` answers from the documents
+and exits non-zero while anything declared is still outstanding, which makes it usable as a
+delivery gate.
+
+`--plan` is a scope beside `--since`: what I chose, versus what the branch touched.
+
 ### And one standing rule
 
 **A session that edits an acceptance document regenerates before running tests.** Otherwise the
@@ -123,6 +136,7 @@ not.
 
 | Skill | For |
 |---|---|
+| [`skills/claude-code/criteria-plan`](skills/claude-code/criteria-plan/SKILL.md) | Turning a task into a working list of scenarios: ask for the list, verify it, prepare it, then act on it |
 | [`skills/claude-code/criteria-lookup`](skills/claude-code/criteria-lookup/SKILL.md) | Looking a scenario up and answering it in conversation, and walking the queue one at a time |
 
 ## What deliberately is not here

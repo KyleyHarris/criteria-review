@@ -14,6 +14,14 @@ import { createReviewServer } from '../src/server.js';
 import { scanAll, changedSince } from '../src/scan.js';
 import { loadSettings, PROJECT_CONFIG } from '../src/config.js';
 import { ejectStandard } from '../src/standard.js';
+import {
+  loadPlan,
+  savePlan,
+  clearPlan,
+  resolveItems,
+  readPlan,
+  completeness,
+} from '../src/plan.js';
 import { isUntracked, needsReview } from '../src/parse.js';
 import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
 import { orderQueue } from '../public/queue-order.js';
@@ -68,6 +76,9 @@ function parseArgs(argv) {
     // One mechanism, two audiences: a developer passes their trunk, a pipeline passes
     // the last release tag. See changedSince.
     else if (a === '--since') args.since = argv[++i];
+    else if (a === '--plan') args.plan = true;
+    else if (a === '--task') args.task = argv[++i];
+    else if (a === '--source') args.source = argv[++i];
     else if (a === '--format') args.format = argv[++i];
     // Verify rather than write: the gate's half of generation. See cmdGenerate.
     else if (a === '--check') args.check = true;
@@ -203,10 +214,15 @@ function usage() {
   criteria-review standard eject <dir> copy the standard into this project to own it
   criteria-review version             package and standard version (also --version)
   criteria-review guide [skill]       print the agent instruction set
+  criteria-review plan [verb]         the scenarios this task covers (ids only):
+                                        set|add [IDs|-]    from args or piped text
+                                        show | next | check | clear
+                                        --task <name> --source <where it came from>
   criteria-review queue               what needs a decision here, most important first
                                         --limit <n>       how many to list (default 10)
                                         --all             every registered project
                                         --since <ref>     only what changed since a ref
+                                        --plan            only what the plan covers
                                         --json            machine-readable
   criteria-review show <ID> [proj]    one scenario in full, with its notes
   criteria-review note <ID> [proj]    write the architect's note (raises @review):
@@ -473,12 +489,109 @@ async function narrowToChanged(results, roots, base) {
   return { scenarios: kept, scope: { base, unavailable } };
 }
 
+/**
+ * The plan: which scenarios a task covers.
+ *
+ * Every verb here reads the DOCUMENTS for title, status and flags. The plan file supplies
+ * the list of ids and contributes nothing else, so there is no state in it that can
+ * disagree with the criteria - and no "mark it done", because done is a scenario whose
+ * status moved, not a tick somebody entered.
+ */
+async function cmdPlan(args) {
+  const roots = await scopedRoots(args);
+  const root = roots[0]?.path ?? process.cwd();
+  const { results } = await scanAllRoots(roots);
+  const scenarios = results.flatMap((r) => r.scenarios);
+  const verb = args._[1] ?? 'show';
+
+  if (verb === 'clear') {
+    await clearPlan(root);
+    console.log('plan cleared');
+    return;
+  }
+
+  const plan = await loadPlan(root);
+
+  if (verb === 'set' || verb === 'add') {
+    // Items come from stdin when nothing is on the command line, so a work item's body can
+    // be piped in whole rather than reduced to a tidy list first.
+    const fromArgs = args._.slice(2);
+    const raw = fromArgs.length ? fromArgs : (await readStdin()).split('\n');
+    const { ids, unresolved } = resolveItems(raw, scenarios);
+    const next = verb === 'set' ? ids : [...(plan.ids ?? []), ...ids];
+    await savePlan(root, { task: args.task ?? plan.task, source: args.source ?? plan.source, ids: next });
+
+    console.log(`${verb === 'set' ? 'plan set to' : 'added'} ${ids.length} scenario(s)`);
+    if (unresolved.length) {
+      // Never silent: an item that vanished here is scope that quietly left the task.
+      console.log(`\n${unresolved.length} item(s) did NOT resolve:`);
+      for (const u of unresolved) console.log(`  ${u.reason}: ${u.text.slice(0, 90)}`);
+      console.log('\nThose need criteria written first, or are not criteria-shaped work.');
+    }
+    return;
+  }
+
+  const { live, orphaned } = readPlan(plan, scenarios);
+  const state = completeness(live);
+
+  if (verb === 'check') {
+    console.log(
+      `${state.settled}/${state.total} settled` +
+        `${plan.task ? ` for ${plan.task}` : ''}${orphaned.length ? `, ${orphaned.length} orphaned` : ''}`
+    );
+    for (const s of state.outstanding) {
+      console.log(`  outstanding  ${(s.id ?? '').padEnd(22)} ${s.status ?? 'untracked'}  ${s.title}`);
+    }
+    for (const id of orphaned) console.log(`  ORPHANED     ${id} - no longer in the documents`);
+    // Exit non-zero so this can gate: a task is not done while a declared scenario is not.
+    if (state.outstanding.length || orphaned.length) process.exit(1);
+    return;
+  }
+
+  if (verb === 'next') {
+    const next = orderQueue(state.outstanding)[0];
+    if (!next) return void console.log('nothing outstanding in the plan');
+    printScenario(next);
+    return;
+  }
+
+  if (verb !== 'show') throw new Error(`unknown plan verb "${verb}". Try: set, add, show, next, check, clear`);
+
+  if (!plan.found) {
+    console.log(`no plan for this branch yet (${plan.file})`);
+    return;
+  }
+  console.log(
+    `${plan.task ?? '(unnamed task)'}${plan.source ? ` · ${plan.source}` : ''}\n` +
+      `${state.settled}/${state.total} settled\n`
+  );
+  for (const s of live) {
+    const mark = s.status === 'accepted' || s.status === 'verified' ? 'x' : ' ';
+    console.log(`  [${mark}] ${(s.id ?? '').padEnd(22)} ${(s.status ?? 'untracked').padEnd(9)} ${s.title}`);
+  }
+  for (const id of orphaned) console.log(`  [!] ${id.padEnd(22)} ORPHANED - no longer in the documents`);
+}
+
+/** Read piped input, so a work item's body can arrive whole. */
+async function readStdin() {
+  if (process.stdin.isTTY) return '';
+  const chunks = [];
+  for await (const c of process.stdin) chunks.push(c);
+  return Buffer.concat(chunks).toString('utf8');
+}
+
 async function cmdQueue(args) {
   const roots = await scopedRoots(args);
   const settings = await loadSettings(roots[0]?.path ?? process.cwd()).catch(() => null);
   const since = args.since ?? settings?.since ?? null;
   const { results } = await scanAllRoots(roots);
-  const { scenarios: all, scope } = await narrowToChanged(results, roots, since);
+  let { scenarios: all, scope } = await narrowToChanged(results, roots, since);
+  if (args.plan) {
+    // The third scope, and the one a developer actually works to: what I chose.
+    const { live, orphaned } = readPlan(await loadPlan(roots[0]?.path ?? process.cwd()), all);
+    for (const id of orphaned) console.error(`warning: ${id} is in the plan but not in the documents`);
+    all = live;
+  }
   for (const project of scope?.unavailable ?? []) {
     // Never silent: a project whose diff failed is not a project with nothing to review.
     console.error(`warning: cannot diff ${project} against ${scope.base}; it is not shown`);
@@ -826,6 +939,7 @@ async function main() {
   if (cmd === 'generate') return cmdGenerate(args);
 
   // The conversational surface: walk, read, answer. No browser, no running server.
+  if (cmd === 'plan') return cmdPlan(args);
   if (cmd === 'queue') return cmdQueue(args);
   if (cmd === 'show') return cmdShow(args);
   if (cmd === 'note' || cmd === 'accept' || cmd === 'verify' || cmd === 'reject') {
