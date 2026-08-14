@@ -82,10 +82,18 @@ Bidirectional, like every other citation check here:
 - **Excluded without a reason** - a problem, for the same purpose `n/a` carries a reason
   everywhere else: an unexplained exclusion is indistinguishable from an oversight.
 
-**One honest limit.** The audit catches missing and dangling. It cannot catch **wrong
-placement** - if a menu moves, the presentation is quietly out of date and only a person
-watching notices. That is the same class of failure as a scenario describing something which
-cannot occur, and it has the same answer: demonstration.
+**One honest limit, and what closes it.** The audit catches missing and dangling. It cannot
+catch **wrong placement**: if a menu moves, the presentation is quietly out of date and nothing
+mechanical notices. That is the same class of failure as a scenario describing something which
+cannot occur.
+
+What closes it is examination rather than a check. The evidence exists in the software - a
+journey visits a route, and the navigation says how that route is reached - so a review pass
+with the code in hand can compare where a scenario is placed against where the application
+actually puts it, and report the contradictions. That is a job for the review, not for the
+tool: a route says how the software is built, and a section title says how a customer thinks
+about it, and those may legitimately differ. The evidence is checkable; the placement is a
+judgement. See the `criteria-present` skill.
 
 ## Where a new scenario goes
 
@@ -113,12 +121,35 @@ Anything the presentation does not place falls to the end under "Not in this pre
 rather than disappearing. A view that silently dropped scenarios would reproduce the exact
 failure the audit exists to catch, in the one surface where nobody would look for it.
 
-## Who maintains them
+## Who maintains them, and when
 
-Both sides, deliberately.
+**Both sides, and it is part of done rather than a courtesy.** Stage 6a of the definition of
+done, and item 9 of the self-review.
 
-QA owns them as part of the review process, because a presentation is the artefact a customer
-is eventually shown. A developer places new scenarios as they land, because the person who
-wrote a scenario is the one who knows where it belongs - and a presentation updated only at
-delivery is a presentation reconstructed under time pressure, which is the failure this whole
-standard is written against.
+| Who | What they owe |
+|---|---|
+| Whoever wrote the scenario | Places it, as the work lands. They know where a user would find it. |
+| QA | Confirms the placement reads as a walkthrough, and owns the structure as the product's navigation changes. |
+
+Neither is sufficient alone, which is precisely why it is a gate. A developer placing scenarios
+without review produces a walkthrough shaped like the code. QA maintaining it alone is
+reconstructing, weeks later, a decision the author could have made in ten seconds.
+
+**Do it as work lands, not at delivery.** A presentation assembled at handover is assembled
+under time pressure by whoever is available, which is the failure this whole standard is
+written against.
+
+## What it buys
+
+Worth stating, because the cost is visible and the benefit is not:
+
+- **A customer sees the product, not the backlog.** Feature folders are a record of how work
+  arrived. Nobody outside the team has any reason to care, and an artefact organised that way
+  quietly asks them to.
+- **A gap becomes findable.** Without the audit, "did we show them everything" is answered by
+  somebody's memory. With it, it is a command.
+- **The demo stops being rebuilt.** A curated `partial` presentation is a demo that already
+  exists, already audited, already tied to real recordings - rather than a slide deck someone
+  rewrites each time.
+- **It costs nothing to the rest.** A presentation is a lens: no document moves, no id changes,
+  no ordering anywhere else is affected.

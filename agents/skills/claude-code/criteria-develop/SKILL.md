@@ -120,6 +120,11 @@ LOCK-OPEN-002  implemented; journey green, proved red by <mutation>; obligations
 CASH-CLOSE-003 NOT implemented - the criterion cannot be satisfied as written; raised @looknow
 ```
 
+**Place it in the walkthroughs before reporting done.** A scenario nobody placed is absent
+from what a customer is shown, and nothing announces it. `criteria-review present place <ID>`
+recommends where; the person who wrote it decides, and QA confirms. This is stage 6a of the
+definition of done, not a courtesy.
+
 **Do not accept or verify anything.** `verified` claims a person watched the software do it, and
 `accepted` is a claim about intent - neither is an implementer's to make about their own work,
 least of all in the same session that wrote it. Hand the finished items to `criteria-lookup`,

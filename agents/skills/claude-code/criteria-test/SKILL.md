@@ -119,6 +119,11 @@ CASH-CLOSE-003 journey written, RED - the app does not do this; raised @looknow
 SHIFT-HAND-004 not attempted - the criterion is INFERRED and unconfirmed
 ```
 
+**Place it in the walkthroughs before reporting done.** A scenario nobody placed is absent
+from what a customer is shown, and nothing announces it. `criteria-review present place <ID>`
+recommends where; the person who wrote it decides, and QA confirms. This is stage 6a of the
+definition of done, not a courtesy.
+
 Say which are green, which are red and why, and which you did not attempt. A skill that reports
 only its successes is worth less than one that reports nothing, because it teaches the reader
 the list is complete.

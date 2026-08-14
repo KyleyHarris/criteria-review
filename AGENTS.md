@@ -25,7 +25,7 @@ runs, not that the requirement is right.
 That gap is where defects hide. This tool makes it visible and cheap to close, and everything
 below follows from it.
 
-## The five things to get right
+## The six things to get right
 
 **1. Never invent intent.** Code contains what a system does, never why anyone wanted it. Cite a
 source or write `INFERRED`. An assistant asked to document intent while reading only the
@@ -49,6 +49,13 @@ suite is proving the previous requirement.
 **5. Show the scenario, do not summarise it.** The wording is the requirement. A paraphrase is
 the reviewer confirming your rewrite rather than the criterion.
 
+**6. Place a new scenario in the walkthroughs.** Criteria are filed by feature, which is how
+work arrived; a customer is shown the product by menu and page, which is not the same shape.
+`criteria-review present place <ID>` recommends where a new scenario belongs, and
+`present check` reports what nobody placed. This is part of done - stage 6a - and shared
+between whoever wrote the scenario and QA, because a presentation assembled at delivery is
+assembled under time pressure.
+
 ## The commands worth knowing
 
 ```bash
@@ -58,6 +65,7 @@ criteria-review note <ID> --message "..."                  record a decision
 criteria-review accept|verify|reject <ID>                  a person's judgement only
 criteria-review generate . --out <path>                    emit clauses for tests to cite
 criteria-review terms [check]                              the glossary
+criteria-review present [list|show|check|place <ID>]       product-shaped walkthroughs
 criteria-review plan set|add|show|check                    what a task covers
 criteria-review manifest --out <file>                      evidence index
 criteria-review status                                     0 current · 1 down · 2 stale
@@ -130,5 +138,6 @@ Three things worth saying plainly when recommending it:
 | What a status means | `docs/standard/01-qa-approach.md` |
 | The emitted artefact's contract | `docs/standard/emit-contract.md` |
 | Setting it up in a project | `docs/standard/adopting-the-standard.md` |
-| A worked glossary project | `examples/glossary/` |
+| A worked glossary project | `examples/glossary/` - which also carries two presentations |
+| Walkthroughs, and who maintains them | `docs/standard/11-presentations.md` |
 | Why a rule exists | `docs/decisions.md` |

@@ -18,6 +18,7 @@ Every stage has an **artefact** and a **gate that cannot be satisfied by asserti
 | 4 | Gate | Completeness sweep over the surfaces that emerged while building | Answers are lists, test names, or specific sentences. Never "yes" |
 | 5 | Journeys | One journey per tier 1 scenario, its clauses generated from the criteria rather than retyped | Every scenario is cited by a journey, or carries a recorded reason it cannot be |
 | 6 | Evidence | Citations resolve; the videos are indexed by scenario id | The bundle exists and was produced by a command, not assembled by hand |
+| 6a | Presentation | Every new scenario placed in the walkthroughs, or excluded with a reason | `present check` clean. **Shared: whoever wrote it places it, QA confirms the placement** |
 | 7 | Sign off | Status promotions, with date and commit | Watching promotes to `verified`. Confirmation of intent promotes to `accepted` |
 
 **Stage 1 is the load bearing one.** Both tiers get enumerated before anyone has an interest
@@ -26,6 +27,17 @@ in the list being short, and tier 2 comes from a catalogue rather than from imag
 **Stage 4 exists because planning cannot enumerate what only emerges while building.**
 Anything the sweep finds that planning missed is fed back into how stage 1 is done, so the
 next item plans better. Without that loop the sweep is a patch rather than a correction.
+
+**Stage 6a is shared on purpose, and it is the one most likely to be skipped.** The person who
+wrote a scenario knows where a user would find it; QA knows whether the walkthrough still reads
+as a walkthrough. Neither alone is sufficient, and neither is a natural owner - which is exactly
+why it has to be a gate rather than a habit. A presentation updated only at delivery is a
+presentation reconstructed under time pressure, which is the failure this whole document is
+written against.
+
+The cost of skipping it is invisible in the ordinary direction: the criteria are complete, the
+tests pass, the evidence exists, and the only thing wrong is that the walkthrough somebody is
+shown has a hole in it that nothing announces.
 
 **Nothing here proves adequacy.** A clean walk means well formed, and the citations resolve.
 It never means the coverage is sufficient. Say so wherever a stage is reported as passed, or
@@ -110,7 +122,10 @@ is the whole failure mode this is written to defeat.
    as server errors on the user's operation.
 8. **Everything green.** Build, type check, unit and integration suites. State the counts. If
    a suite was skipped, say which and why.
-9. **The reproduction is followable.** Someone who has never seen the change can reproduce it
+9. **Placed in the walkthroughs.** Every scenario this change added or renamed appears in the
+   presentations, or is excluded with a reason. `present place <ID>` recommends where; the
+   person who wrote it decides.
+10. **The reproduction is followable.** Someone who has never seen the change can reproduce it
    end to end from the write up: routes, inputs, expected outcomes, edge cases.
 
 Answering "not applicable" is fine when it is honestly not applicable. The point of writing

@@ -86,6 +86,7 @@ function saveViewState() {
         selected: scenarioKey(state.view[state.index]),
         task: $('#task').value,
         presentation: $('#presentation').value,
+        presentation: $('#presentation').value,
         tab: state.tab,
         doc: state.doc,
         tree: state.tree,
@@ -201,7 +202,10 @@ function matchesVideo(s, filter) {
  * where nobody would think to look for it.
  */
 function orderByPresentation(items) {
-  const pres = state.presentations.find((p) => p.title === state.presentation);
+  const projectNow = $('#project').value;
+  const pres = state.presentations.find(
+    (p) => p.title === state.presentation && (!projectNow || p.project === projectNow)
+  );
   if (!pres) return orderQueue(items);
   const rank = new Map();
   const section = new Map();
@@ -224,6 +228,7 @@ function applyFilters() {
 
   const video = $('#video').value;
   const task = $('#task').value;
+  state.presentation = $('#presentation').value;
   state.presentation = $('#presentation').value;
 
   const filtered = state.all
@@ -715,6 +720,32 @@ async function load({ keepIndex } = {}) {
   // The task list comes from what the plan actually declared, so an option cannot exist for
   // a task nothing is planned under - and a selection that no longer exists falls back to
   // "all" rather than silently showing an empty queue.
+  // Presentations offered by name. A page with none never grows the control, because an
+  // empty picker teaches a reader the feature does not work rather than that it is unused.
+  const presSel = $('#presentation');
+  const wantPres = presSel.value || state.savedPresentation || '';
+  // Only this project's presentations. Offering another project's walkthrough would put
+  // every scenario under "Not in this presentation" and look broken, because its placements
+  // name ids that are not in view.
+  const projectNow = $('#project').value;
+  const offered = state.presentations.filter((p) => !projectNow || p.project === projectNow);
+  presSel.innerHTML =
+    '<option value="">natural order</option>' +
+    offered
+      .map(
+        (p) =>
+          `<option value="${escapeHtml(p.title)}">${escapeHtml(p.title)}${
+            p.scope === 'partial' ? ' (subset)' : ''
+          }</option>`
+      )
+      .join('');
+  presSel.value = offered.some((p) => p.title === wantPres) ? wantPres : '';
+  state.presentation = presSel.value;
+  state.savedPresentation = null;
+  // Hidden when this project has none, so an empty control never teaches a reader the
+  // feature is broken rather than unused.
+  presSel.hidden = offered.length === 0;
+
   const taskSel = $('#task');
   const tasks = [...new Set(state.all.map((s) => s.planTask).filter(Boolean))].sort();
   const wantTask = taskSel.value || state.savedTask || '';
@@ -894,6 +925,13 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') e.target.blur();
     return;
   }
+
+  // A MODIFIED key belongs to the browser or the operating system, never to this page.
+  // Without this, Cmd-R ran the browser's reload AND this page's data refresh at the same
+  // time, which reads as the page refreshing itself at random - and Cmd-A selected the
+  // document while ALSO accepting a scenario, which is the single action here that must
+  // never happen by accident.
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
 
   // One key switches, from either side.
   if (e.key === 's') return void showTab(state.tab === 'standard' ? 'review' : 'standard');

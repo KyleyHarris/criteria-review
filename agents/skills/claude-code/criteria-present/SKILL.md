@@ -95,6 +95,42 @@ Four findings, and they need different responses:
 dangling, never **wrong placement**. If a menu moved, the presentation is quietly out of date
 and only a person watching notices.
 
+## 4a. Check placement against the application's real flow
+
+The audit cannot tell you a placement is in the wrong section - but **you can**, by reading the
+software, and this is the part of the job a person is least likely to do by hand.
+
+For each placement, gather where the behaviour actually lives:
+
+1. **What route or screen does the journey visit?** A journey citing the scenario navigates
+   somewhere. That route is hard evidence about where a user encounters this.
+2. **How is that screen reached?** Read the navigation - the menu configuration, the router,
+   the component that renders the links. That is the path a user walks, and the presentation
+   should mirror it.
+3. **Is the scenario reachable from more than one place?** Then it may legitimately belong in
+   two sections, and the audit reporting a duplicate is confirmation rather than a fault.
+
+Then compare, and report a placement that contradicts the flow:
+
+```
+LOCK-FAIL-001 sits under "The register > Getting back in"
+  its journey visits /settings/security, reached from Settings, not from the till
+  -> looks misplaced; Settings > Security matches the route it actually exercises
+```
+
+**Report it, do not move it.** A section title is a judgement about how a customer thinks
+about the product, and the route is only evidence about how the software is built. Those
+usually agree and sometimes should not - a thing implemented under Settings may still be
+demonstrated where a cashier would meet it. Say what the code shows and let the person decide.
+
+**Say which kind of claim you are making.** "The journey visits /settings/security" is read
+from the source. "This should move" is a judgement. Keep them apart in the report, because the
+first is checkable and the second is an opinion that deserves to be argued with.
+
+This is also how a presentation is kept honest as the product changes: a menu reorganisation
+makes placements quietly wrong, nothing in the audit notices, and a pass over the routes is
+the only thing that will.
+
 ## 5. Placing new work, which is the part that keeps this alive
 
 When a scenario lands, it belongs somewhere:
