@@ -179,6 +179,7 @@ observed wrongly. Same artefacts, opposite meaning.
 | [`criteria-test`](skills/claude-code/criteria-test/SKILL.md) | Building the journey for a criterion, learning the behaviour by driving the running app |
 | [`criteria-develop`](skills/claude-code/criteria-develop/SKILL.md) | Implementing code for criteria the build does not satisfy, red to green, without editing the criterion |
 | [`criteria-glossary`](skills/claude-code/criteria-glossary/SKILL.md) | Finding where the vocabulary really lives and writing the script that emits the terms manifest, so a rename never stales a document |
+| [`criteria-present`](skills/claude-code/criteria-present/SKILL.md) | Building and auditing the product-shaped walkthroughs a customer is shown, and placing new scenarios into them |
 | [`criteria-bundle`](skills/claude-code/criteria-bundle/SKILL.md) | Recording narrated videos for a plan or a branch, and packaging them with their documents |
 
 ### What every one of them refuses

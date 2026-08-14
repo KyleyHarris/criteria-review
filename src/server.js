@@ -23,6 +23,7 @@ import { loadPlan } from './plan.js';
 import { STANDARD_VERSION } from './version.js';
 import { loadSettings } from './config.js';
 import { loadTerms, renderTerms } from './terms.js';
+import { loadPresentations } from './presentation.js';
 import { branchName, repoName } from './media.js';
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -290,6 +291,27 @@ export function createReviewServer(rootsOrLoader, opts = {}) {
         // traversal attempt: the honest answer is that no such document exists here.
         if (!doc) return json(res, 404, { error: 'no such document' });
         return json(res, 200, doc);
+      }
+
+      // The product-shaped walkthroughs, so the page can offer them as a view. Sent as
+      // structure only: which ids in which order, under which headings. Everything about a
+      // scenario is still read from the scenarios payload, so a presentation cannot
+      // disagree with a document about a title or a status.
+      if (req.method === 'GET' && url.pathname === '/api/presentations') {
+        const out = [];
+        for (const root of roots) {
+          for (const p of await loadPresentations(root.path).catch(() => [])) {
+            out.push({
+              project: root.name,
+              title: p.title,
+              source: p.source,
+              scope: p.scope,
+              audience: p.audience,
+              placements: p.placements,
+            });
+          }
+        }
+        return json(res, 200, { presentations: out });
       }
 
       if (req.method === 'GET' && url.pathname === '/api/scenarios') {

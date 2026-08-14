@@ -21,6 +21,7 @@ What are you doing?
 6  a criterion the build does not satisfy           -> criteria-develop
 7  a word changed, or criteria spell a domain noun  -> criteria-glossary
 8  a task is finished and needs its evidence        -> criteria-bundle
+9  I need to show someone the product               -> criteria-present
 ```
 
 ---
@@ -54,6 +55,7 @@ architect would invent intent nobody holds.
 | `criteria-test` | A criterion has no journey and the software exists to drive | Edit the criterion when the app disagrees - it raises a flag |
 | `criteria-develop` | A criterion is right and the build cannot satisfy it | Change a criterion or a clause to make a test pass |
 | `criteria-bundle` | A task is done and needs watchable evidence | Promote a status because a recording exists |
+| `criteria-present` | Someone has to be walked through the product | Re-file criteria to match a walkthrough, or place a scenario unread to pass an audit |
 
 The third column is the useful one. Every skill refuses something, and the refusals are why the
 set is worth having rather than a pile of prompts.

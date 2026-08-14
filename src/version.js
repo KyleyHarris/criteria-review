@@ -16,4 +16,4 @@
 // The additive/breaking split matters more than the surface changing: adding a status
 // cannot break a consumer that does not use it, and treating it as breaking would make
 // every vocabulary addition look like a migration.
-export const STANDARD_VERSION = '1.2.0';
+export const STANDARD_VERSION = '1.3.0';

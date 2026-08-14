@@ -16,6 +16,11 @@ import { loadSettings, PROJECT_CONFIG } from '../src/config.js';
 import { ejectStandard } from '../src/standard.js';
 import { loadTerms, renderTerms, variantOf, findSpelledTerms } from '../src/terms.js';
 import {
+  loadPresentations,
+  auditPresentation,
+  suggestPlacement,
+} from '../src/presentation.js';
+import {
   loadPlan,
   savePlan,
   clearPlan,
@@ -279,6 +284,8 @@ function usage() {
   criteria-review terms [show|check]  the glossary: what it defines, what documents use,
                                       and what spells a term instead of naming it
                                         --strict          a spelled term fails the check
+  criteria-review present [verb]      product-shaped walkthroughs of the same scenarios:
+                                        list | show [name] | check [name] | place <ID>
   criteria-review manifest            evidence index: scenarios, clips, and the work item
                                         --out <file>      write it (default: stdout)
                                         --since <ref> | --all   scope, else the plan
@@ -814,6 +821,124 @@ async function cmdTerms(args) {
   }
 }
 
+/**
+ * Presentations: the product-shaped walk through the same scenarios.
+ *
+ * `show` walks one in order, which is what a person is actually shown. `check` is the audit
+ * that makes the whole idea trustworthy - a walkthrough built to show somebody the product
+ * misleads exactly that person if it silently omits something. `place` answers the question a
+ * developer has after writing a scenario: where does this go?
+ */
+async function cmdPresent(args) {
+  const roots = await scopedRoots(args);
+  const root = roots[0]?.path ?? process.cwd();
+  const { results } = await scanAllRoots(roots);
+  const scenarios = results.flatMap((r) => r.scenarios);
+  const all = await loadPresentations(root);
+  const verb = args._[1] ?? 'list';
+
+  // A presentation is read by a person, so it shows the words the product uses rather than
+  // the glossary keys behind them.
+  const settings = await loadSettings(root).catch(() => ({ terms: null }));
+  const { terms } = settings.terms
+    ? await loadTerms(resolve(root, settings.terms))
+    : { terms: {} };
+  const shown = (s) => (s ? renderTerms(s.title, terms).rendered : null);
+
+  if (!all.length) {
+    console.log(
+      `No presentations in ${roots[0]?.name ?? 'this project'}.\n\n` +
+        `A presentation is how the PRODUCT is walked through, as opposed to how its criteria\n` +
+        `are filed. Put markdown files in presentations/ - headings give the structure,\n` +
+        `@ID lines place scenarios, and prose between them is what a viewer is told.\n` +
+        `See the standard's presentation document, and the criteria-present skill.`
+    );
+    return;
+  }
+
+  // A name selects loosely, and an ambiguous one is refused rather than picked.
+  const named = args._[2] ?? args.presentation;
+  const chosen = named
+    ? all.filter((p) => p.title.toLowerCase().includes(String(named).toLowerCase()))
+    : all;
+  if (named && !chosen.length) throw new Error(`no presentation matching "${named}"`);
+  if (named && chosen.length > 1) {
+    throw new Error(
+      `"${named}" matches ${chosen.length}: ${chosen.map((p) => p.title).join(', ')}`
+    );
+  }
+
+  if (verb === 'place') {
+    const id = args._[2];
+    if (!id) throw new Error('present place expects a scenario id');
+    const target = scenarios.find((s) => s.id === id);
+    if (!target) throw new Error(`no scenario ${id}`);
+    console.log(`${id}  ${shown(target)}\n`);
+    for (const s of suggestPlacement(target, all, scenarios)) {
+      console.log(`${s.presentation} [${s.scope}]  ${s.source}`);
+      console.log(`  section: ${s.section ?? '(nothing similar placed yet)'}`);
+      console.log(`  basis  : ${s.basis}${s.after ? ` - would sit after ${s.after}` : ''}\n`);
+    }
+    console.log('Recommendations only. Whoever wrote the scenario decides where it belongs.');
+    return;
+  }
+
+  if (verb === 'check') {
+    let bad = 0;
+    for (const pres of chosen) {
+      const a = auditPresentation(pres, scenarios);
+      console.log(
+        `${a.presentation} [${a.scope}]  ${a.placed}/${a.total} placed  ${a.ok ? 'OK' : ''}`
+      );
+      for (const p of a.problems) console.log(`  PROBLEM   ${p}`);
+      for (const id of a.dangling) {
+        console.log(`  DANGLING  ${id} - referenced here, not in the documents`);
+      }
+      for (const id of a.missing) {
+        console.log(`  MISSING   ${id}  ${shown(scenarios.find((x) => x.id === id)) ?? ''}`);
+      }
+      // Not a fault: a scenario reachable from two menus belongs in both places.
+      for (const id of a.duplicated) console.log(`  (twice)   ${id}`);
+      if (!a.ok) bad++;
+      console.log('');
+    }
+    if (bad) process.exit(1);
+    return;
+  }
+
+  if (verb === 'list') {
+    for (const p of all) {
+      const a = auditPresentation(p, scenarios);
+      console.log(
+        `${p.title.padEnd(28)} ${p.scope.padEnd(9)} ${String(a.placed).padStart(3)} placed` +
+          `${p.audience ? `  for ${p.audience}` : ''}${a.ok ? '' : '  NEEDS ATTENTION'}`
+      );
+    }
+    return;
+  }
+
+  if (verb !== 'show') throw new Error(`unknown present verb "${verb}". Try: list, show, check, place`);
+
+  const byId = new Map(scenarios.filter((s) => s.id).map((s) => [s.id, s]));
+  for (const pres of chosen) {
+    console.log(`\n${pres.title}${pres.audience ? `  (for ${pres.audience})` : ''}\n`);
+    let lastPath = '';
+    for (const place of pres.placements) {
+      const key = place.path.join(' > ');
+      if (key !== lastPath) {
+        console.log(`  ${key}`);
+        lastPath = key;
+      }
+      const s = byId.get(place.id);
+      console.log(
+        `    ${place.id.padEnd(20)} ${(s?.status ?? 'MISSING').padEnd(9)} ` +
+          `${shown(s) ?? '(not in the documents)'}`
+      );
+      if (place.narration) console.log(`      ${place.narration}`);
+    }
+  }
+}
+
 async function cmdManifest(args) {
   const roots = await scopedRoots(args);
   const root = roots[0]?.path ?? process.cwd();
@@ -1264,6 +1389,7 @@ async function main() {
   // The conversational surface: walk, read, answer. No browser, no running server.
   if (cmd === 'plan') return cmdPlan(args);
   if (cmd === 'terms') return cmdTerms(args);
+  if (cmd === 'present') return cmdPresent(args);
   if (cmd === 'manifest') return cmdManifest(args);
   if (cmd === 'queue') return cmdQueue(args);
   if (cmd === 'show') return cmdShow(args);

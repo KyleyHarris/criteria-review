@@ -64,3 +64,13 @@ Scenario: A {vendor} terminal reports the unlock upstream
   When a {operator.lower} unlocks it
   Then {vendor} is told which {operator.lower} is now serving
 ```
+
+<!-- intent: design-notes/till-lock.md section 6 -->
+
+```gherkin
+@LOCK-FAIL-001 @status:derived @persona:Cashier
+Scenario: Repeated wrong PINs lock the {till.lower} out
+  Given four wrong PINs have been entered on this {till.lower}
+  When a fifth is entered
+  Then the {till.lower} refuses further attempts for fifteen minutes
+```

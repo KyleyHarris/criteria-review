@@ -1,6 +1,6 @@
 # The acceptance-criteria standard
 
-**Standard version 1.2.0.** This directory is the source of truth for how acceptance criteria
+**Standard version 1.3.0.** This directory is the source of truth for how acceptance criteria
 are written, confirmed, cited by tests, and gated. Consumer projects hold pointers and their own
 instance data. They do not restate it. See `../decisions.md` D-001.
 
@@ -27,6 +27,7 @@ document by generation rather than by copy.
 | [`06-engineering-obligations.md`](06-engineering-obligations.md) | The second tier, and the coverage categories every surface is worked through. |
 | [`07-manual-qa-and-defects.md`](07-manual-qa-and-defects.md) | What stays manual, and the defect report bar. |
 | [`08-definition-of-done.md`](08-definition-of-done.md) | The lifecycle, its gates, and what "done" is not. |
+| [`11-presentations.md`](11-presentations.md) | Product-shaped walkthroughs of the same scenarios, and the audit that keeps them honest. |
 | [`10-glossary.md`](10-glossary.md) | Naming domain concepts instead of spelling them, so a rename does not stale every document. |
 | [`09-recording-journeys.md`](09-recording-journeys.md) | Turning a passing journey into a video a newcomer can follow, and the delivery package. Written to be executed. |
 | [`emit-contract.md`](emit-contract.md) | The generated artefact: shape, guarantees, gate wiring. |

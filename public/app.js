@@ -49,6 +49,11 @@ const state = {
   // sentence used rather than the word it renders to. Deliberately not persisted - display
   // is the right default every time a page is opened.
   rawTerms: false,
+  // A presentation is a third ordering of the same queue, alongside risk order and the tree.
+  // Selecting one changes the ORDER and the grouping headings; it changes nothing about a
+  // scenario, because those facts are still read from the documents.
+  presentations: [],
+  presentation: '',
 };
 
 /**
@@ -80,6 +85,7 @@ function saveViewState() {
         search: $('#search').value,
         selected: scenarioKey(state.view[state.index]),
         task: $('#task').value,
+        presentation: $('#presentation').value,
         tab: state.tab,
         doc: state.doc,
         tree: state.tree,
@@ -105,6 +111,7 @@ function restoreViewState() {
   if (saved.video != null) $('#video').value = saved.video;
   if (saved.search != null) $('#search').value = saved.search;
   state.savedTask = saved.task ?? '';
+  state.savedPresentation = saved.presentation ?? '';
   state.restoreKey = saved.selected ?? null;
   state.savedProject = saved.project ?? '';
   // The reading position is part of the session too: someone half way through a
@@ -185,6 +192,31 @@ function matchesVideo(s, filter) {
   return true;
 }
 
+/**
+ * Order the queue the way the product presents itself.
+ *
+ * Placement order wins, and anything the presentation does not place falls to the end in its
+ * usual risk order rather than disappearing. A view that silently dropped scenarios would be
+ * the exact failure the presentation audit exists to catch, reproduced in the one surface
+ * where nobody would think to look for it.
+ */
+function orderByPresentation(items) {
+  const pres = state.presentations.find((p) => p.title === state.presentation);
+  if (!pres) return orderQueue(items);
+  const rank = new Map();
+  const section = new Map();
+  pres.placements.forEach((p, i) => {
+    if (!rank.has(p.id)) rank.set(p.id, i);
+    if (!section.has(p.id)) section.set(p.id, p.path.join(' > '));
+  });
+  const placed = items
+    .filter((s) => rank.has(s.id))
+    .map((s) => ({ ...s, presSection: section.get(s.id) }))
+    .sort((a, b) => rank.get(a.id) - rank.get(b.id));
+  const rest = orderQueue(items.filter((s) => !rank.has(s.id)));
+  return [...placed, ...rest.map((s) => ({ ...s, presSection: 'Not in this presentation' }))];
+}
+
 function applyFilters() {
   const project = $('#project').value;
   const status = $('#status').value;
@@ -192,6 +224,7 @@ function applyFilters() {
 
   const video = $('#video').value;
   const task = $('#task').value;
+  state.presentation = $('#presentation').value;
 
   const filtered = state.all
     // A set of tasks is normal, so narrowing to one is a filter rather than a mode.
@@ -218,7 +251,7 @@ function applyFilters() {
         : true
     );
 
-  state.view = orderQueue(filtered);
+  state.view = state.presentation ? orderByPresentation(filtered) : orderQueue(filtered);
 
   state.index = state.view.length ? Math.min(Math.max(state.index, 0), state.view.length - 1) : -1;
   renderList();
@@ -291,6 +324,23 @@ function scenarioRow(s, i, depth = 0) {
 }
 
 /** The queue: one ordered list, with a header where the document changes. */
+/** Grouped by the presentation's own headings, so the walk reads as it was written. */
+function renderPresentation() {
+  let last = null;
+  return state.view
+    .map((s, i) => {
+      let header = '';
+      if (s.presSection !== last) {
+        last = s.presSection;
+        header = `<div class="doc-head"><span class="doc-name">${escapeHtml(
+          s.presSection ?? ''
+        )}</span></div>`;
+      }
+      return header + scenarioRow(s, i);
+    })
+    .join('');
+}
+
 function renderFlat() {
   // A header whenever the document changes, so the batch boundary is visible. Without
   // it the grouping is real but invisible, and a reviewer cannot tell whether the next
@@ -370,7 +420,11 @@ function renderTree() {
 }
 
 function renderList() {
-  $('#list').innerHTML = state.tree ? renderTree() : renderFlat();
+  $('#list').innerHTML = state.presentation
+    ? renderPresentation()
+    : state.tree
+      ? renderTree()
+      : renderFlat();
   const active = $('#list .row.active');
   if (active) active.scrollIntoView({ block: 'nearest' });
 }
@@ -603,6 +657,14 @@ function move(delta) {
   renderList();
   renderDetail();
   saveViewState();
+}
+
+async function loadPresentationsList() {
+  try {
+    state.presentations = (await api('/api/presentations')).presentations ?? [];
+  } catch {
+    state.presentations = [];
+  }
 }
 
 async function load({ keepIndex } = {}) {
@@ -895,7 +957,7 @@ $('#detail').addEventListener('click', (e) => {
   if (b) act(b.dataset.act);
 });
 
-for (const id of ['#project', '#status', '#video', '#search', '#task']) {
+for (const id of ['#project', '#status', '#video', '#search', '#task', '#presentation']) {
   $(id).addEventListener('input', () => {
     applyFilters();
     renderRoots();
@@ -969,7 +1031,8 @@ function listen() {
 
 restoreViewState();
 setListMode(state.tree);
-load()
+loadPresentationsList()
+  .then(load)
   .then(listen)
   .then(() => {
     // After the queue, so a refresh into the reading tab still has the review pane
