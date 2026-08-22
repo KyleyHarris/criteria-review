@@ -125,18 +125,50 @@ test('rebuildTagLine appends tags that were not present', () => {
 
 test('setStatus changes only the targeted scenario', async () => {
   const file = await fixture();
-  await setStatus(file, 'LOCK-001', 'accepted', { date: '2026-08-09' });
+  await setStatus(file, 'LOCK-001', 'verified', { date: '2026-08-09', commit: 'deadbee' });
   const after = await readFile(file, 'utf8');
   const s = parseDocument(after, file);
 
-  assert.equal(s[0].status, 'accepted');
+  assert.equal(s[0].status, 'verified');
   assert.equal(s[0].verifiedOn, '2026-08-09');
   // The sibling scenario must be untouched: an edit that widened to both would
-  // silently mark unreviewed work as approved.
+  // silently mark unreviewed work as approved, and hand it a sighting nobody made.
   assert.equal(s[1].status, 'derived');
   assert.equal(s[1].verifiedOn, null);
+  assert.equal(s[1].commit, null);
   assert.match(after, /Prose between the blocks that must survive untouched\./);
   assert.equal(s[0].persona, 'Cashier');
+});
+
+test('accepting records no observation, because none was made', async () => {
+  // Catches the review page stamping @verified:<today> on Accept. Accepting says the
+  // behaviour is what the software SHOULD do; it is not a claim that anyone watched
+  // this build do it, and the date written was the day the button was pressed. It
+  // also arrived with no @commit, so the document ended up carrying the exact shape
+  // `emit` rejects for a verified scenario, escaping only because the check is keyed
+  // on the status. A `date` offered by a caller is ignored for the same reason.
+  const file = await fixture();
+  await setStatus(file, 'LOCK-001', 'accepted', { date: '2026-08-09', commit: 'deadbee' });
+  const s = await reread(file);
+
+  assert.equal(s[0].status, 'accepted');
+  assert.equal(s[0].verifiedOn, null);
+  assert.equal(s[0].commit, null);
+  assert.equal(s[0].persona, 'Cashier');
+});
+
+test('accepting a scenario that was verified keeps the real observation', async () => {
+  // The mirror defect of the one above: a fix that stripped observation metadata on
+  // accept would erase a sighting that genuinely happened. The date and commit belong
+  // to the day someone watched it, and being accepted later does not change that.
+  const file = await fixture();
+  await setStatus(file, 'LOCK-001', 'verified', { date: '2026-08-09', commit: 'deadbee' });
+  await setStatus(file, 'LOCK-001', 'accepted');
+  const s = await reread(file);
+
+  assert.equal(s[0].status, 'accepted');
+  assert.equal(s[0].verifiedOn, '2026-08-09');
+  assert.equal(s[0].commit, 'deadbee');
 });
 
 test('setStatus accepts a status this tool does not know about', async () => {
@@ -202,7 +234,7 @@ test('addNote refuses an empty note', async () => {
 
 test('accepting a scenario answers its @looknow', async () => {
   const file = await fixture(FLAGGED_DOC);
-  await setStatus(file, 'LOCK-001', 'accepted', { date: '2026-08-09', actor: ACTOR_ARCHITECT });
+  await setStatus(file, 'LOCK-001', 'accepted', { actor: ACTOR_ARCHITECT });
   const s = await reread(file);
 
   assert.equal(s.find((x) => x.id === 'LOCK-001').status, 'accepted');

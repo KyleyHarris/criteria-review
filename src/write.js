@@ -84,8 +84,8 @@ export function rebuildTagLine(tagLine, id, updates) {
 }
 
 /**
- * Set a scenario's status, and stamp verification metadata when moving to a state
- * that requires it. Returns the new status on success.
+ * Set a scenario's status, and stamp observation metadata when moving to `verified`.
+ * Returns the new status on success.
  */
 export async function setStatus(file, id, status, { commit, date, actor } = {}) {
   // Deliberately permissive on the VALUE, strict on the SHAPE. Consumer documents
@@ -112,7 +112,16 @@ export async function setStatus(file, id, status, { commit, date, actor } = {}) 
   }
 
   const updates = { status };
-  if (status === 'verified' || status === 'accepted') {
+  // Only `verified` carries @verified/@commit, because only `verified` makes the claim
+  // they record: a person watched THIS build do it on THAT day. `accepted` is a judgement
+  // about what the software SHOULD do and requires watching nothing, so stamping it wrote
+  // a sighting nobody made - dated today, with no commit from the review page, which is
+  // exactly the uncheckable shape `emit` refuses for a verified scenario. An earlier and
+  // real verification survives an acceptance untouched, because rebuildTagLine preserves
+  // every tag it is not asked to change. When the acceptance itself happened is not stored
+  // at all: it is the commit that wrote @status:accepted, which is useful rather than
+  // load bearing and is already stamped in git.
+  if (status === 'verified') {
     updates.verified = date ?? new Date().toISOString().slice(0, 10);
     if (commit) updates.commit = commit;
   }
