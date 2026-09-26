@@ -28,6 +28,7 @@ import {
   readPlan,
   completeness,
   selectTasks,
+  withoutTasks,
 } from '../src/plan.js';
 import { isUntracked, needsReview } from '../src/parse.js';
 import { addNote, setStatus, ACTOR_ARCHITECT } from '../src/write.js';
@@ -279,6 +280,7 @@ function usage() {
   criteria-review plan [verb]         the scenarios this task covers (ids only):
                                         set|add [IDs|-]    from args or piped text
                                         show | next | check | clear
+                                        clear --task <name>  that task only
                                         --task <name>      repeatable: several in flight
                                         --source <where it came from>
   criteria-review terms [show|check]  the glossary: what it defines, what documents use,
@@ -589,12 +591,6 @@ async function cmdPlan(args) {
   const scenarios = results.flatMap((r) => r.scenarios);
   const verb = args._[1] ?? 'show';
 
-  if (verb === 'clear') {
-    await clearPlan(root);
-    console.log('plan cleared');
-    return;
-  }
-
   const plan = await loadPlan(root);
 
   // Narrow to named tasks, refusing an ambiguous name rather than picking one - working the
@@ -607,6 +603,39 @@ async function cmdPlan(args) {
     }
     return selected;
   };
+
+  if (verb === 'clear') {
+    // A bare word after `clear` used to be ignored and the whole plan went with it. Refuse it:
+    // a name that was meant to narrow the clear must never widen it to everything.
+    if (args._.length > 2) {
+      throw new Error(
+        `plan clear takes no positional argument ("${args._.slice(2).join(' ')}"). ` +
+          'Use --task <name> to clear one task, or no name to clear the whole plan.'
+      );
+    }
+    if (!args.tasks?.length) {
+      await clearPlan(root);
+      console.log('plan cleared');
+      return;
+    }
+    // Scoped clear: every name must resolve, or nothing is written. A partial match that
+    // removed one task and warned about another would leave a plan nobody asked for.
+    const { selected, unmatched, ambiguous } = selectTasks(plan.tasks, args.tasks);
+    for (const a of ambiguous) {
+      throw new Error(`"${a.name}" matches ${a.matched.length} tasks: ${a.matched.join(', ')}`);
+    }
+    if (unmatched.length) {
+      throw new Error(`no task matching ${unmatched.map((n) => `"${n}"`).join(', ')}; plan unchanged`);
+    }
+    const remaining = withoutTasks(plan.tasks, selected);
+    if (remaining.length) await savePlan(root, remaining);
+    else await clearPlan(root);
+    console.log(
+      `cleared ${selected.map((t) => `"${t.task ?? '(unnamed task)'}"`).join(', ')}; ` +
+        `${remaining.length} task(s) left in the plan`
+    );
+    return;
+  }
 
   if (verb === 'set' || verb === 'add') {
     // Items come from stdin when nothing is on the command line, so a work item's body can

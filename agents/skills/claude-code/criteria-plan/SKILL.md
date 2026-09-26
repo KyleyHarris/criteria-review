@@ -61,6 +61,7 @@ Ask for confirmation, corrections, or additions. Then, and only then, step 3.
 npx criteria-review plan set <IDS...> --task "<name>" --source "<where it came from>"
 npx criteria-review plan add <IDS...>                      # scope grew on the current task
 npx criteria-review plan add <IDS...> --task "<another>"   # a SECOND task, in flight alongside
+npx criteria-review plan clear --task "<name>"            # drop one task; no name clears the whole plan
 ```
 
 **A plan holds a set of tasks, not one.** Working two or three at once is normal, so each keeps

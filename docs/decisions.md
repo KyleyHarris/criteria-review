@@ -377,3 +377,29 @@ loses the key, so the next rename is a document sweep - the thing being fixed.
 **Note on this entry's own release.** `v0.7.0` shipped the feature but its tag message claimed
 standard 1.2.0 while `STANDARD_VERSION` still read 1.1.2. Corrected in `v0.7.1` rather than by
 moving a published tag.
+
+---
+
+## D-013. A plan resolves any id the documents hold; the id shape is an authoring rule
+
+**Date:** 2026-09-26
+**Status:** decided
+
+The standard names an id `<AREA>-<THING>-<NNN>` (`docs/standard/02-writing-acceptance-criteria.md`),
+and `plan add` enforced that shape when it picked ids out of the text it was given. The document
+parser does not: it takes any bare tag as the id. A consuming project with 24 committed ids of the
+form `LOCK-021` could see them in every report and could not plan a single one, because the plan
+reported each as "no scenario id found". Those ids cannot be renamed to fit, since the same section
+of the standard makes an id stable forever.
+
+**Decided:** resolving an id is a lookup, not authoring. `plan add` and `plan set` accept a family of
+one word or several before the number, and an id is admitted only when a document holds it, so a
+well-formed typo is still refused. The shape rule belongs where an id is first written, and ids that
+predate it stay valid.
+
+**Alternative weighed.** *Keep the strict pattern and fix only the message.* Rejected: it leaves
+committed, stable ids permanently unplannable, and the plan's whole purpose is that nothing a task
+covers leaves it silently.
+
+**Released with it:** `plan clear` ignored a positional name and cleared the whole plan. A bare name
+is now refused, and `plan clear --task <name>` removes that task only.

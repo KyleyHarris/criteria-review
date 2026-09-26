@@ -46,6 +46,39 @@ test('an id that does not exist is reported against its own text', () => {
   assert.match(unresolved[0].reason, /no such scenario/);
 });
 
+test('an id with a one-word family resolves like any other', () => {
+  const scenarios = [...SCENARIOS, { id: 'LOCK-021', title: 'Duplicated tab', status: 'proposed', project: 'p', source: 'c.md' }];
+  const { ids, unresolved } = resolveItems(['LOCK-021', '@LOCK-021', 'the tab in LOCK-021 keeps its lock'], scenarios);
+
+  // Catches: an id pattern stricter than the document parser. The parser takes any bare tag
+  // as the id, so LOCK-021 is a real scenario, and a pattern demanding two words before the
+  // number reported it as "no scenario id found" - scope that never reached the plan.
+  assert.deepEqual(ids, ['LOCK-021']);
+  assert.deepEqual(unresolved, []);
+});
+
+test('an id is not cut out of a longer number', () => {
+  const { ids, unresolved } = resolveItems(['certified to ISO-9001'], SCENARIOS);
+
+  // Catches: matching the first three digits of a longer run. ISO-9001 is not ISO-900, and
+  // reporting a scenario nobody named would send someone looking for it.
+  assert.deepEqual(ids, []);
+  assert.match(unresolved[0].reason, /no scenario id found/);
+});
+
+test('removing a named task keeps every other task', async () => {
+  const { withoutTasks, selectTasks } = await import('../src/plan.js');
+  const tasks = [
+    { task: '380', source: null, ids: ['LOCK-OPEN-001'] },
+    { task: 'Refunds', source: 'AB#8891', ids: ['CASH-CLOSE-003'] },
+  ];
+  const { selected } = selectTasks(tasks, ['refunds']);
+
+  // Catches: a clear scoped to one task wiping the whole plan, which is what happened when
+  // the name was silently ignored.
+  assert.deepEqual(withoutTasks(tasks, selected).map((t) => t.task), ['380']);
+});
+
 test('the same scenario named twice lands once', () => {
   const { ids } = resolveItems(['LOCK-OPEN-001', 'again: LOCK-OPEN-001'], SCENARIOS);
   assert.deepEqual(ids, ['LOCK-OPEN-001']);

@@ -116,6 +116,16 @@ export async function clearPlan(root) {
 }
 
 /**
+ * The tasks left once the selected ones are removed.
+ *
+ * What `plan clear --task <name>` writes back: only the named task goes, every other task and
+ * its ids stay exactly as they were.
+ */
+export function withoutTasks(tasks, selected) {
+  return tasks.filter((t) => !selected.includes(t));
+}
+
+/**
  * Match what a person or a work item supplied against the scenarios that exist.
  *
  * Classifies rather than drops. An item resolving to nothing is reported, because "the plan
@@ -127,7 +137,11 @@ export async function clearPlan(root) {
  */
 export function resolveItems(inputs, scenarios) {
   const byId = new Map(scenarios.filter((s) => s.id).map((s) => [s.id.toLowerCase(), s]));
-  const idPattern = /@?([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+-\d{3})/g;
+  // A family of one word or several, then the number: LOCK-021 as well as LOCK-OPEN-001.
+  // The document parser takes any bare tag as the id, so this must not be stricter than it
+  // or a real scenario reads as "no scenario id found". The lookahead stops a longer number
+  // (ISO-9001) from yielding a three-digit id nobody wrote.
+  const idPattern = /@?([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d{3})(?!\d)/g;
 
   const ids = [];
   const unresolved = [];
