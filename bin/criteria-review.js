@@ -7,6 +7,7 @@
 // activity this is trying to make cheap.
 
 import { readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, basename } from 'node:path';
@@ -486,13 +487,29 @@ async function cmdGenerate(args) {
  * Falls back to everything when the working directory is not a registered project, which
  * is what makes the command useful from anywhere.
  */
+/**
+ * Whether `dir` is `root` or inside it, compared by real path. A registered path and the
+ * working directory can name one place two ways (macOS reports /private/var for /var, and a
+ * symlinked checkout does the same), and a plain string compare then says "not inside".
+ */
+function isInside(dir, root) {
+  const real = (p) => {
+    try {
+      return realpathSync(resolve(p));
+    } catch {
+      return resolve(p);
+    }
+  };
+  const d = real(dir);
+  const r = real(root);
+  return d === r || d.startsWith(r + '/');
+}
+
 async function scopedRoots(args) {
   if (args.projects.length || args.all) return rootsFrom(args);
   const cfg = await loadConfig();
   const cwd = process.cwd();
-  const here = (cfg.projects ?? []).filter(
-    (p) => cwd === resolve(p.path) || cwd.startsWith(resolve(p.path) + '/')
-  );
+  const here = (cfg.projects ?? []).filter((p) => isInside(cwd, p.path));
   // The deepest match wins, so a worktree inside a registered parent scopes to itself.
   if (here.length) return [here.sort((a, b) => b.path.length - a.path.length)[0]];
 
@@ -585,11 +602,25 @@ async function narrowToChanged(results, roots, base) {
  * status moved, not a tick somebody entered.
  */
 async function cmdPlan(args) {
+  const verb = args._[1] ?? 'show';
+  // A plan belongs to exactly one repository. Outside a registered project, scopedRoots falls
+  // back to every registered one, and taking the first of those used to read, write and even
+  // clear the plan of a project nobody named. Refuse unless the root is certain: the one
+  // --project given, or the project this directory is inside.
   const roots = await scopedRoots(args);
-  const root = roots[0]?.path ?? process.cwd();
+  const cwd = process.cwd();
+  const certain =
+    roots.length === 1 &&
+    (args.projects.length === 1 || isInside(cwd, roots[0].path));
+  if (!certain) {
+    throw new Error(
+      `plan ${verb}: not inside a registered project, so there is no telling whose plan this is. ` +
+        'Run it from the project (criteria-review here registers it), or name it with --project <name>=<path>.'
+    );
+  }
+  const root = roots[0].path;
   const { results } = await scanAllRoots(roots);
   const scenarios = results.flatMap((r) => r.scenarios);
-  const verb = args._[1] ?? 'show';
 
   const plan = await loadPlan(root);
 
