@@ -403,3 +403,37 @@ covers leaves it silently.
 
 **Released with it:** `plan clear` ignored a positional name and cleared the whole plan. A bare name
 is now refused, and `plan clear --task <name>` removes that task only.
+
+---
+
+## D-014. The product owner is a role, and describes the need before the architect designs
+
+**Date:** 2026-10-05
+**Status:** decided
+
+The standard named two roles, the architect and the implementers. The person who wanted the
+software appeared only as "whoever owns the intent", and turning their want into intent was the
+architect's first job, done from conversation. In a consuming project whose customer is a
+specialist engineer and whose developers know nothing of the field, that left two gaps: the
+architect could not design without knowing how the business runs today, and the developer could
+not build a value described by name only, because the domain detail was never written down by the
+one person who had it.
+
+**Decided:** a third role, the product owner, ahead of the architect
+(`docs/standard/12-product-owner.md`). They describe the business and the need, never the solution,
+in three document shapes: the business and its needs (what you do and why, how today, what is hard,
+what software should solve, the needs as user stories), the values to work out, and the checks to
+apply, each value and check carrying its terms, starting facts, steps, reason, assumptions and a
+worked example with real numbers. A portable prompt (`docs/standard/12-product-owner-prompt.txt`)
+runs the interview in any assistant, and the `criteria-product-owner` skill runs it in Claude Code.
+The architect's intake starts from these documents, and does not edit them into a design.
+
+**Alternative weighed.** *Leave the customer's side to the architect's intake.* Rejected: intake can
+only judge what it is given, and the architect's own reading of a customer is not the customer's
+statement. *Have the product owner write Gherkin scenarios.* Rejected as the primary shape: tier 1
+wording is the architect's (section 2 of the roles), and a customer writing to a format they do not
+own produces scenarios shaped like the software they imagine. Plain Given/When/Then cases are
+allowed under a user story, as examples of the need.
+
+**Versioning.** Standard 1.4.0, a minor change: a role and document shapes are added, and nothing a
+conforming consumer relies on changes. The emitted shape is untouched.

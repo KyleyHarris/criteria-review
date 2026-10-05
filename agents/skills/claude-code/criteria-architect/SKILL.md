@@ -22,7 +22,10 @@ A request arriving from outside is **a want, not a specification**, and admittin
 were one is how unsourced intent enters the system.
 
 Take the source they give you - a conversation, a ticket, a document, a paragraph - and check it
-carries three things:
+carries three things. Where the product owner has written their needs in the standard's shapes
+(`docs/standard/12-product-owner.md`, via the `criteria-product-owner` skill or its prompt),
+start from those documents: they carry the actor, the "so that" and the sources by construction,
+and what they leave open is already listed as open questions.
 
 - **A named actor and a real "so that".** Not "add a filter": who is blocked without it, and
   what can they not currently do. A circular "so that" is a heading, not a story.

@@ -1,6 +1,6 @@
 # The acceptance-criteria standard
 
-**Standard version 1.3.0.** This directory is the source of truth for how acceptance criteria
+**Standard version 1.4.0.** This directory is the source of truth for how acceptance criteria
 are written, confirmed, cited by tests, and gated. Consumer projects hold pointers and their own
 instance data. They do not restate it. See `../decisions.md` D-001.
 
@@ -18,6 +18,7 @@ document by generation rather than by copy.
 
 | File | What it is |
 |---|---|
+| [`12-product-owner.md`](12-product-owner.md) | Before the architect: the product owner's description of the business and the need, in three document shapes, with a prompt any assistant can run. |
 | [`00-roles-and-ownership.md`](00-roles-and-ownership.md) | Who decides and who builds: the ownership boundary, intake, the brief, the three levels of test, vetting, re-solutioning. |
 | [`01-qa-approach.md`](01-qa-approach.md) | Two tiers by readership, scenario ids, the status ladder, evidence rules, intent sourcing, limits of mechanical checking. |
 | [`02-writing-acceptance-criteria.md`](02-writing-acceptance-criteria.md) | Authoring: document anatomy, story rules, scenario format, tags, provenance, the review loop. |

@@ -4,15 +4,21 @@ Who stands where. The rest of the pack describes the machinery; this file descri
 the machinery is arranged around, what each of them owns, and where the boundary between
 deciding and building falls.
 
-Two roles carry the work, and this document names them as the tool does:
+Three roles carry the work, and this document names them as the tool does:
 
+- **The product owner** says what the business does and what it needs: the customer, or whoever
+  speaks for the work the software will serve. They describe the need and never the solution, and
+  in a specialist field they are the only source of the domain detail a build depends on. What
+  they provide, and in what shape, is [`12-product-owner.md`](12-product-owner.md).
 - **The architect** decides what the software *should* do. Organisations title this differently:
   solutions architect, technical lead, product engineer. The title is not the point; the remit
   is.
 - **The implementers** decide how it is realised in code, and prove their own seams.
 
-One person can hold both roles on a small project, and the boundary still matters, because it is
-what makes the criteria worth writing rather than a formality performed after the fact.
+One person can hold the architect's and the implementers' roles on a small project, and the
+boundary still matters, because it is what makes the criteria worth writing rather than a
+formality performed after the fact. The product owner is usually someone else: the person whose
+work the software serves.
 
 ---
 
@@ -39,7 +45,10 @@ the criteria then check. The criteria, agreed, are the design.
 ## 1. The role has two faces, and they are different jobs
 
 Facing whoever wanted the software, which may be a customer, product, support or pre-sales, the
-job is to **turn a want into an agreed intent**. This is where the "so that" is nailed down
+job is to **turn a want into an agreed intent**. Where a product owner has described the business
+and the need ([`12-product-owner.md`](12-product-owner.md)), that description is where this
+starts: how the work is done today, what is hard about it, and the needs as user stories, written
+by the person who holds them. This is where the "so that" is nailed down
 ([`02-writing-acceptance-criteria.md`](02-writing-acceptance-criteria.md)), where a request stops
 being a solution somebody guessed at and becomes the outcome it was really about. The output is
 a tier 1 acceptance document, in the requester's language, that they have confirmed.
@@ -324,14 +333,14 @@ The stages in [`08-definition-of-done.md`](08-definition-of-done.md) sequence th
 table names who stands at each gate, so the lifecycle and the roles are one description rather
 than two.
 
-| Stage | The architect | The team |
-|---|---|---|
-| Intake | Sources the intent; admits, returns or holds the request | |
-| Plan | Writes tier 1, names the tier 2 shortlist, produces the brief | Challenges the brief and the contract |
-| Confirm | Shares tier 1 with the intent owner, promotes off `derived` | |
-| Build | Available for the open questions; does not reach into the how | Builds behind the contract, owns the local decisions |
-| Gate | Runs the completeness sweep with the team; feeds gaps back into planning | Produces tests and evidence |
-| Sign-off | Accepts against intent and contract; promotes status | Delivers the evidence bundle by one command |
+| Stage | The product owner | The architect | The team |
+|---|---|---|---|
+| Intake | Describes the business and the need ([`12-product-owner.md`](12-product-owner.md)) | Sources the intent; admits, returns or holds the request | |
+| Plan | Answers the questions intake held | Writes tier 1, names the tier 2 shortlist, produces the brief | Challenges the brief and the contract |
+| Confirm | Confirms tier 1 in their own language | Shares tier 1 with the intent owner, promotes off `derived` | |
+| Build | Answers domain questions the build turns up | Available for the open questions; does not reach into the how | Builds behind the contract, owns the local decisions |
+| Gate | | Runs the completeness sweep with the team; feeds gaps back into planning | Produces tests and evidence |
+| Sign-off | | Accepts against intent and contract; promotes status | Delivers the evidence bundle by one command |
 
 The completeness sweep is worth calling out as a shared act rather than a checkpoint the
 architect owns alone. Planning cannot enumerate what only emerges while building, and the person

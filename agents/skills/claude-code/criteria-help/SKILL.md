@@ -13,6 +13,7 @@ start. The question below is for when it genuinely is not.
 
 ```
 What are you doing?
+0  I'm the customer, describing what we need        -> criteria-product-owner
 1  a request came in, nothing designed yet          -> criteria-architect
 2  the software exists, nothing is written down     -> criteria-backfill
 3  I have a task to pick up                         -> criteria-plan
@@ -47,6 +48,7 @@ architect would invent intent nobody holds.
 
 | Skill | Use it when | It will not |
 |---|---|---|
+| `criteria-product-owner` | The customer needs to describe the business and what they need, before any design | Suggest a solution, or fill a gap they could not answer |
 | `criteria-architect` | A request arrived and needs designing into a spec, a brief and a declaration | Design a request whose intent is missing - it returns or holds it instead |
 | `criteria-backfill` | A legacy area has no criteria and someone needs something to verify | Claim its inferred intent is fact, or mark anything confirmed |
 | `criteria-glossary` | A domain word changed, or criteria spell one | Invent the vocabulary - it finds the real source and scripts the export |
