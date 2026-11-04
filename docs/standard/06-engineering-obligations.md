@@ -113,9 +113,9 @@ way in the ledger is a defect nobody sees until reconciliation.
 Every principal that can reach a surface, **including those that must be refused**. Answered
 by naming them, never by assumption.
 
-This is where assumption has cost me directly: two tests once shipped asserting a permission
-boundary that did not exist in the code at all, and both passed, because they asserted the
-refusal of an actor who could not have reached the surface for a different reason.
+This is where assumption is most expensive: a test can assert a permission boundary that does
+not exist in the code at all and still pass, because it asserts the refusal of an actor who
+could not have reached the surface for a different reason.
 
 Expectations: a test per allowed principal and a test per refused principal; cross tenant and
 cross owner access refused, not merely absent from the UI.

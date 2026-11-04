@@ -701,8 +701,7 @@ async function load({ keepIndex } = {}) {
   sel.value = current;
 
   // Build the status filter from the statuses actually present. A hard-coded list
-  // silently hides a status the projects have started using, which is how
-  // `proposed` went unnoticed until it appeared in a screenshot.
+  // silently hides a status a project has started using.
   const st = $('#status');
   const seen = [...new Set(data.scenarios.map((x) => x.status).filter(Boolean))].sort();
   const fixed = [

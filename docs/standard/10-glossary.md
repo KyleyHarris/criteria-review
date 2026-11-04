@@ -3,8 +3,8 @@
 Criteria are user-facing prose naming domain concepts, so they are exactly the class of text a
 glossary exists for - and they are usually the last surface anyone applies it to.
 
-The failure is quiet. A product renames the thing a login belongs to from "Member" to "Company",
-or an "Organization Type" to an "Operation Type", and every criterion that spelled the old word
+The failure is quiet. A product renames the person serving at the till from "Clerk" to "Cashier",
+or a "Till" to a "Register", and every criterion that spelled the old word
 is now describing something that does not exist. Nothing catches it, because the words are prose
 and prose always parses.
 
@@ -16,12 +16,12 @@ and prose always parses.
 the criterion is read.**
 
 ```gherkin
-@CO-TYPES-001 @status:derived @persona:Support staff
-Scenario: A {loginGroup} must have at least one {operationType}
-  Given a new {loginGroup}
-  When staff save it with no {operationType.lower} chosen
+@SHOP-SETUP-001 @status:derived @persona:Support staff
+Scenario: A {premises} must have at least one {till}
+  Given a new {premises}
+  When staff save it with no {till.lower} chosen
   Then the save is refused
-  And the {loginGroup.lower} is not created
+  And the {premises.lower} is not created
 ```
 
 Braces, not `<>`, because Scenario Outline owns that syntax.
@@ -39,12 +39,12 @@ One file per project, declared in `criteria.json`:
 
 ```json
 {
-  "loginGroup": {
-    "value": "Company",
-    "plural": "Companies",
-    "description": "The organisation a login belongs to. Was 'Member' until 2026-08.",
+  "operator": {
+    "value": "Cashier",
+    "plural": "Cashiers",
+    "description": "The person serving customers at a till. Was 'Clerk' until 2026-03.",
     "casing": "title",
-    "possessive": "Company's"
+    "possessive": "Cashier's"
   }
 }
 ```
@@ -54,15 +54,15 @@ One file per project, declared in `criteria.json`:
 | `value` | yes | The singular, exactly as a user sees it |
 | `plural` | yes | Authored, because English pluralisation is not reliably mechanical |
 | `description` | yes | What the concept **is**, for the next author deciding whether this is the term they want |
-| `casing` | no | `title` (default) or `preserve`, for words like `iMIS` whose capitalisation is part of their identity |
+| `casing` | no | `title` (default) or `preserve`, for words like `iPOS` whose capitalisation is part of their identity |
 | `possessive` | no | Overrides the derivation where English disagrees with itself after a trailing s |
 
 **Two rules the format enforces, and they are the whole point:**
 
-**Keys name the internal domain; values name what the user sees.** The key is `loginGroup`
-because the entity is a login group. The value was "Member" and is now "Company". Keys and values
+**Keys name the internal domain; values name what the user sees.** The key is `operator`
+because the entity is an operator. The value was "Clerk" and is now "Cashier". Keys and values
 have different lifetimes, so keying on the current word would make the next rename a *key*
-rename, and would leave `member` resolving to "Company".
+rename, and would leave `clerk` resolving to "Cashier".
 
 **Only `value` and `plural` are authored.** `{term.lower}`, `{term.lowerPlural}` and
 `{term.possessive}` derive. An authored lowercase is where drift reappears inside a single term:
@@ -90,10 +90,10 @@ This is the decision the whole feature turns on.
 
 ```ts
 steps: [
-  'Given a new {loginGroup}',                      // the BINDING key
+  'Given a new {premises}',                        // the BINDING key
 ],
 stepsDisplay: [
-  'Given a new Company',                           // what a person reads
+  'Given a new Business',                          // what a person reads
 ],
 ```
 
@@ -135,8 +135,8 @@ its terms, and a gate that fails everything on day one is a gate that gets switc
 
 ```
 3 place(s) spell a term instead of naming it:
-  "Company" -> {loginGroup}  in CO-TYPES-002 (member-administration/company-list-acceptance.md)
-      Given a Company with two sites
+  "Cashier" -> {operator}  in SHIFT-OPEN-002 (shifts/shift-acceptance.md)
+      Given a Cashier with two open shifts
 ```
 
 Whether a given word is the domain concept or ordinary prose is a judgement, so this reports
@@ -144,7 +144,7 @@ rather than rewrites. The question is **"who owns this word"**, not "is this str
 
 ## A worked example
 
-`examples/glossary/` in this package is a real project rather than a snippet: a manifest, a
+`examples/glossary/` in this package is a complete project rather than a snippet: a manifest, a
 document using every variant, a `preserve`-cased proper noun, an authored possessive. The test
 suite runs the actual pipeline over it, so an example that stopped working would fail the build
 rather than quietly rot.

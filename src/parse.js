@@ -3,7 +3,7 @@
 //
 // The format is deliberately dual-audience: Gherkin prose a person reads, with a
 // leading tag line a machine reads. This file is the machine half. It must stay
-// tolerant, because a real consumer has two generations of documents in its tree -
+// tolerant, because a project can hold two generations of documents in its tree -
 // older ones carry bare `Scenario:` with no tags at all, and those are precisely the
 // backlog worth surfacing rather than an error to reject. Generation is where the
 // vocabulary is enforced strictly; see src/emit.js and D-005.

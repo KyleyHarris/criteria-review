@@ -66,9 +66,9 @@ to be readable by someone who will never clone the repository.
 The same export, minus the videos, is what gets shared **before** implementation.
 
 A document carries force in a disagreement only if it was **agreed**. Sharing it beforehand is
-what converts it from "what the developer assumed" into "what we agreed", and I have had that
-distinction settle a dispute that would otherwise have been engineering opinion against a
-customer's recollection.
+what converts it from "what the developer assumed" into "what we agreed", and that distinction
+settles a dispute that would otherwise be engineering opinion against a customer's
+recollection.
 
 It is also where intent is corrected most cheaply, because no code exists yet.
 
@@ -76,9 +76,9 @@ It is also where intent is corrected most cheaply, because no code exists yet.
 
 ## Enforcement checks output, not input
 
-Reminders have failed me repeatedly, and the failures were not ignorance. The rules were
-written down, in front of me, and read. They were then not applied, because a general reminder
-is agreed with and moved past.
+Reminders fail, and the failure is not ignorance. A rule can be written down, in front of the
+person doing the work, and read, and still not be applied, because a general reminder is agreed
+with and moved past.
 
 So enforcement fires at the moment work is declared done, not at the moment it begins, and it
 asks a **specific question derived from the change**, never a general one:

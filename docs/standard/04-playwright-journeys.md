@@ -164,11 +164,10 @@ Rules:
 - A test id a spec needs ships **in that spec's own change**, not behind a separate landing
   change first.
 
-**Why a precedence and not a blanket test-id mandate.** I have shipped the mandate version and
-watched it fail. A rule that every selector must be an attribute the application does not yet
-have makes a production edit a precondition for writing any test at all, so three specs sat
-skipped behind an attribute change that never landed, while the screens they targeted already
-carried usable labels the whole time. It also inverts Playwright's own guidance, which puts
+**Why a precedence and not a blanket test-id mandate.** A rule that every selector must be an
+attribute the application does not yet have makes a production edit a precondition for writing
+any test at all, so specs sit skipped behind an attribute change that never lands, while the
+screens they target already carry usable labels. It also inverts Playwright's own guidance, which puts
 user facing attributes first and test ids last.
 
 ## 3. Getting to the starting state

@@ -2,8 +2,8 @@
 
 The standard the rest of this pack implements. It is about connection, evidence and
 enforcement rather than about adding rules, because reminders do not work: the rules that
-failed me were already written down, already in front of me, and were read and then not
-applied.
+fail are usually already written down, already in front of the person doing the work, read,
+and then not applied.
 
 ---
 
@@ -17,11 +17,11 @@ That single sentence is why this standard is about evidence and traceability, an
 cheapest artefact in the system is a two minute video rather than a paragraph asserting that
 something was checked.
 
-It has bitten me concretely. A feature branch once shipped documented, implemented, and with
-every one of its nine manual test cases green, while the capability it described was
-unreachable in the running product. The finding came from reading the server by hand. The QA
-layer as it stood could not have produced it, because every test agreed with the software and
-nothing in the process asked whether the software agreed with the intent.
+The failure it prevents is concrete. A feature can ship documented, implemented, and with every
+one of its manual test cases green, while the capability it describes is unreachable in the
+running product. A QA layer that only checks tests against software cannot find that, because
+every test agrees with the software and nothing in the process asks whether the software
+agrees with the intent.
 
 ---
 

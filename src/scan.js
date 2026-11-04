@@ -49,8 +49,8 @@ export async function changedSince(root, base) {
  * `relative()` returns the host's own separator, and that string does not stay
  * inside this process: it becomes a scenario's `source`, which is written into the
  * generated artefact that consumers commit and that `generate --check` compares byte
- * for byte. Left native, a document scanned on Windows emits `documentation\ui-qa\x.md`
- * where the same repository on macOS emits `documentation/ui-qa/x.md`, so the two
+ * for byte. Left native, a document scanned on Windows emits `docs\acceptance\x.md`
+ * where the same repository on macOS emits `docs/acceptance/x.md`, so the two
  * platforms produce different artefacts from identical inputs and each fails the
  * other's gate with no defect to find.
  *
@@ -64,10 +64,9 @@ export function toPosixPath(path) {
 /**
  * Directory names that hold acceptance criteria.
  *
- * `acceptance` is the standard's directory. `ui-qa` is a recognised legacy alias: it
- * is one project's original name, adopted before the standard moved here, and dropping
- * it would make that project's entire criteria set invisible rather than surfacing a
- * migration. Retire it only by moving those documents, never by removing it here.
+ * `acceptance` is the standard's directory. `ui-qa` is a recognised legacy alias, kept
+ * because dropping it would make any criteria set still filed under it invisible rather
+ * than surfacing a migration. Retire it only once nothing is filed there.
  */
 const CRITERIA_DIRS = ['acceptance', 'ui-qa'];
 

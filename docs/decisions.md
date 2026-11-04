@@ -11,11 +11,9 @@ decided?", and the surface to check drift against.
 **Date:** 2026-08-11
 **Status:** decided
 
-Until now the standard was owned by the first project that needed it, and this tool described
-itself as "a reader over that schema, not a second authority". Two consumer projects then
-existed, one of which kept a local mirror of the format documentation that described itself as
-a mirror. A mirror cannot know its original changed, so it rots into a contradiction, and the
-project that owned the standard had no way to tell that it had.
+The standard needs one owner. A project that keeps a local mirror of the format documentation
+cannot know when its original changed, so the mirror rots into a contradiction, and whoever owns
+the original has no way to tell that it has.
 
 The standard now lives here, in `docs/standard/`. Consumer projects hold pointers and their own
 instance data, never a restatement.
@@ -29,9 +27,9 @@ coverage map, and whatever sign-off arrangement it has with a customer stay with
 
 **Alternatives weighed.**
 
-- *Leave ownership with the originating project.* Rejected: the second consumer had already
-  written a mirror and labelled it as one, which is the failure this exists to remove. It also
-  makes a project's internal reorganisation a breaking change for everyone else.
+- *Leave ownership with a consuming project.* Rejected: every other consumer then writes a
+  mirror, which is the failure this exists to remove. It also makes that project's internal
+  reorganisation a breaking change for everyone else.
 - *A separate standards repository, with the tool as one consumer.* Rejected for now: the
   parser, the review queue and the enforcement all live here, and a standard whose enforcement
   lives somewhere else is a document rather than a standard. Revisit if a second tool ever
@@ -42,8 +40,8 @@ coverage map, and whatever sign-off arrangement it has with a customer stay with
 
 **Consequences.**
 
-- The tool's own text stops disclaiming authority, and consumer projects stop naming each other
-  as the source.
+- The tool's own text does not disclaim authority, and consumer projects point here rather than
+  at each other.
 - The standard needs a version, because a change to the tag vocabulary is now a breaking change
   for every consumer. See D-002.
 - Enforcement has to land with the ownership move rather than after it. Authority without
@@ -77,14 +75,11 @@ changelog before assuming the build failure is theirs.
 
 The standard requires that a journey's step names be the scenario's own Given/When/Then
 wording, so that what a reviewer reads and what the test proves are the same sentence. The
-obvious implementation is to type those clauses into the test as step names. That was in use,
-and it is wrong: it makes two copies of every clause with nothing detecting an edit to either.
-
-Measured on the consumer project that has journeys: 18 spec files, 31 tests citing a scenario
-id, 132 narrated steps. Every one of them was in exact sync with its document at the time of
-the decision, which is the point - the sync was held by care alone, on the one artefact where
-care is what already failed. A journey that dropped one of a scenario's five clauses would have
-reported green.
+obvious implementation is to type those clauses into the test as step names, and it is wrong:
+it makes two copies of every clause with nothing detecting an edit to either. Even a suite whose
+every step is in exact sync with its documents holds that sync by care alone, on the one artefact
+where care is what fails. A journey that dropped one of a scenario's five clauses would report
+green.
 
 Instead the clauses are parsed out of the acceptance documents and emitted as a typed module
 that the journeys reference by key. The consumer supplies a body per clause; the type system
@@ -98,9 +93,9 @@ retyped.
 **Alternatives weighed.**
 
 - *A text checker comparing the document to the spec source.* Rejected: it has to understand
-  the consumer's language and formatting. The first such check written by hand during this
-  investigation reported a false divergence, because one call was formatted on one line rather
-  than three. A checker that is wrong about formatting is worse than no checker.
+  the consumer's language and formatting, and reports a false divergence as soon as one call is
+  formatted on one line rather than three. A checker that is wrong about formatting is worse
+  than no checker.
 - *Adopt a behaviour-driven runner with step definitions bound by expression matching.*
   Rejected: shared reusable steps get written vaguely, and vague steps destroy the near 1:1
   clause-to-assertion mapping that makes review affordable. This design keeps steps specific to
@@ -124,7 +119,7 @@ longer free.
 **Date:** 2026-08-11
 **Status:** decided
 
-The first consumer is TypeScript, so the obvious move is to emit a TypeScript module. A
+The obvious move is to emit a TypeScript module, since the first renderer is TypeScript. A
 standard whose only output binds to one language is not a standard.
 
 The core emit is JSON: the parsed model, filtered and ordered. A typed TypeScript module is one
@@ -164,13 +159,10 @@ degrades quietly reintroduces it at the one point where a machine could have bee
 **Status:** decided
 **Standard version:** 1.1.0
 
-Found by running the new generator against a real consumer branch rather than by reading: 22
-scenarios there carry `@status:proposed`, and generation refused all of them. The status was
-introduced by that project before the standard moved here, and this tool's own review UI already
-ranks it, between untracked and `derived`.
+Strict generation refused every scenario carrying `@status:proposed`, a status this tool's own
+review UI already ranks, between untracked and `derived`.
 
-It is adopted rather than migrated away, for a reason stronger than "it is already in use": the
-standard's own lifecycle says tier 1 scenarios are authored at planning, before implementation,
+It is adopted, for a reason stronger than "it is already in use": the standard's own lifecycle says tier 1 scenarios are authored at planning, before implementation,
 **as proposals**. Without a status for that state the ladder cannot express its own stage 1, and
 a scenario written before any code exists has to masquerade as `derived`, which claims it
 describes delivered software.
@@ -207,8 +199,8 @@ host's own separator. That string does not stay inside the process: it is writte
 generated artefact that consumers commit, and `generate --check` compares that artefact byte for
 byte.
 
-Left native, the same repository with the same documents emits `documentation\ui-qa\x.md` on
-Windows and `documentation/ui-qa/x.md` on macOS. Each platform then fails the other's gate, and
+Left native, the same repository with the same documents emits `docs\acceptance\x.md` on
+Windows and `docs/acceptance/x.md` on macOS. Each platform then fails the other's gate, and
 the failure reports drift that does not exist. That is worse than a missed defect: a gate which
 cries wolf is a gate people learn to skip, and this one is the mechanism holding the criteria and
 the tests together.
@@ -227,7 +219,7 @@ identity function.
 **Versioning.** The rule had no category for a defect fix that changes emitted content without
 changing its shape, so patch now says so explicitly rather than leaving it to be inferred.
 Consumers regenerate and commit; nothing else changes. On a POSIX machine the emitted bytes are
-identical, confirmed against both consumers.
+identical.
 
 ---
 
@@ -236,8 +228,7 @@ identical, confirmed against both consumers.
 **Date:** 2026-08-11
 **Status:** decided
 
-Two repositories now depend on this tool, and one of them wires it into a verification gate. A
-consumer that tracks whatever is on the default branch inherits every change the moment it lands,
+A consumer may wire this tool into a verification gate. A consumer that tracks whatever is on the default branch inherits every change the moment it lands,
 including a change to the emitted shape, and discovers it as a broken build with no version to name
 in the report.
 
@@ -348,17 +339,18 @@ That is the real design question, and it is not urgent while there is one librar
 **Status:** decided
 **Standard version:** 1.2.0
 
-A criterion found in a real document described "organization types" after the product had renamed
-them operation types, and another spelled "Member" after that concept became "Company". Nothing
-caught either, because the words are prose and prose always parses.
+A criterion that says "Clerk" after the product renamed that role "Cashier" is describing
+something that no longer exists. Nothing catches it, because the words are prose and prose always
+parses.
 
 The rule already existed one layer down: a string containing a domain noun is a finding, and
-carries a term resolved at render time. Criteria are exactly that class of text and were the
-surface it had never been applied to. So criteria name concepts - `{loginGroup}` - and the words
+carries a term resolved at render time. Criteria are exactly that class of text and are the
+surface it is least often applied to. So criteria name concepts - `{operator}` - and the words
 resolve when the criterion is read.
 
-The manifest mirrors the application-side registry field for field, because two dialects of
-"term" inside one organisation would be drift on a new axis rather than a fix for it.
+The manifest's fields are the ones an application-side term registry would carry, so a project
+can emit it from its own registry: two dialects of "term" inside one organisation would be drift
+on a new axis rather than a fix for it.
 
 **The decision the feature turns on: the emitted artefact carries the RAW clause as the binding
 key and a rendered string beside it.** A journey supplies one body per clause keyed on the raw
@@ -387,8 +379,8 @@ moving a published tag.
 
 The standard names an id `<AREA>-<THING>-<NNN>` (`docs/standard/02-writing-acceptance-criteria.md`),
 and `plan add` enforced that shape when it picked ids out of the text it was given. The document
-parser does not: it takes any bare tag as the id. A consuming project with 24 committed ids of the
-form `LOCK-021` could see them in every report and could not plan a single one, because the plan
+parser does not: it takes any bare tag as the id. A project with committed ids of the form
+`AREA-021` could see them in every report and could not plan a single one, because the plan
 reported each as "no scenario id found". Those ids cannot be renamed to fit, since the same section
 of the standard makes an id stable forever.
 
@@ -413,11 +405,11 @@ is now refused, and `plan clear --task <name>` removes that task only.
 
 The standard named two roles, the architect and the implementers. The person who wanted the
 software appeared only as "whoever owns the intent", and turning their want into intent was the
-architect's first job, done from conversation. In a consuming project whose customer is a
-specialist engineer and whose developers know nothing of the field, that left two gaps: the
-architect could not design without knowing how the business runs today, and the developer could
-not build a value described by name only, because the domain detail was never written down by the
-one person who had it.
+architect's first job, done from conversation. Where the customer is a specialist and the
+developers know nothing of the field, that leaves two gaps: the
+architect cannot design without knowing how the business runs today, and the developer cannot
+build a value described by name only, because the domain detail is never written down by the one
+person who has it.
 
 **Decided:** a third role, the product owner, ahead of the architect
 (`docs/standard/12-product-owner.md`). They describe the business and the need, never the solution,
@@ -437,3 +429,26 @@ allowed under a user story, as examples of the need.
 
 **Versioning.** Standard 1.4.0, a minor change: a role and document shapes are added, and nothing a
 conforming consumer relies on changes. The emitted shape is untouched.
+
+---
+
+## D-015. Recommendations are not the contract, and do not move the standard version
+
+**Date:** 2026-11-04
+**Status:** decided
+
+The recording guidance gains rules for clips that explain themselves: a caption on every page a
+journey films, kept across navigation; a label on every page other than the main one; a check of
+each clip for a missing caption or a long blank stretch before it ships; only journeys that prove a
+named scenario in a customer package; and the main page's clip first. They are written as strong
+recommendations, and the sample plumbing that meets them is a sample.
+
+**Decided:** guidance the tool does not enforce is a recommendation, and changing it does not move
+`STANDARD_VERSION`. The version names what a consumer conforms to: the tag vocabulary, the status
+set and the emitted shape. A recommendation asks nothing of an existing consumer, so nothing anyone
+has built can be broken by one.
+
+**Alternative weighed.** *A patch bump, as D-002 reads for documentation.* Rejected: the version is
+stamped into every consumer's generated module, so a bump fails each consumer's `generate --check`
+on its next upgrade, for a change that requires nothing of them. A gate that goes red for nothing is
+a gate people learn to skip.

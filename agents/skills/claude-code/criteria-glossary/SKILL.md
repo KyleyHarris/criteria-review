@@ -50,10 +50,10 @@ Its whole job is to read the real source and emit the manifest:
 
 ```json
 {
-  "loginGroup": {
-    "value": "Company",
-    "plural": "Companies",
-    "description": "The organisation a login belongs to"
+  "operator": {
+    "value": "Cashier",
+    "plural": "Cashiers",
+    "description": "The person serving customers at a till"
   }
 }
 ```
@@ -74,7 +74,7 @@ And declare it once:
 **Three things to get right in the generator**, each of which the standard requires and the
 tool refuses without:
 
-- **Key on the internal domain, not the current word.** `loginGroup`, never `member`. If the
+- **Key on the internal domain, not the current word.** `operator`, never `clerk`. If the
   source is keyed on the display word, map it - otherwise the next rename becomes a key rename
   and the whole exercise fails on its first real test.
 - **Emit `plural` and `description`.** A term defined only in the form one screen uses is the
@@ -96,7 +96,7 @@ the word where it should name the concept - reported but not fatal, because on t
 adopts a glossary every existing document spells its terms, and a gate that fails everything on
 day one is a gate that gets switched off. `--strict` is what a team turns on once migrated.
 
-A worked example lives in the tool at `examples/glossary/` - a real project with a manifest and
+A worked example lives in the tool at `examples/glossary/` - a complete project with a manifest and
 a document using every variant, including a `preserve`-cased proper noun and an authored
 possessive. Register it to see the shape:
 
@@ -149,12 +149,12 @@ the next rename.
 ## Report
 
 ```
-Glossary: 14 terms, generated from ui/src/language/terms.ts
-  gen:glossary wired in ui/package.json
+Glossary: 14 terms, generated from src/terms.ts
+  gen:glossary wired in package.json
   terms check: every marker resolves
   3 documents migrated: 11 sentences now name concepts (shown above, approved)
   regenerated: diff touched display fields only - no binding key moved
-  2 terms UNUSED - loginGroup was renamed and 4 criteria still spell "Member"
+  2 terms UNUSED - operator was renamed and 4 criteria still spell "Clerk"
 ```
 
 Never edit a criterion's meaning while doing this. Replacing a spelled word with the term that
