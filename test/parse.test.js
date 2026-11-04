@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { parseDocument, parseTags, isUntracked, needsReview } from '../src/parse.js';
 
 // What these guard: the tag line is the machine-readable half of the format, and
-// every one of these cases appears in real consumer content. A parser that quietly
+// every one of these cases is a shape real documents take. A parser that quietly
 // mis-reads a tag produces a review queue that is wrong rather than empty, which
 // is the worse failure - an empty queue is noticed, a wrong one is trusted.
 
@@ -78,7 +78,7 @@ test('untagged scenarios still parse, and are reported as untracked', () => {
   assert.equal(old.id, null);
   assert.equal(old.status, null);
   assert.equal(old.title, 'An old scenario with no tags at all');
-  // A real consumer document has 13 of these today. Dropping them would hide the backlog.
+  // Older documents often hold many of these. Dropping them would hide the backlog.
   assert.equal(isUntracked(old), true);
   assert.equal(needsReview(old), true);
 });
@@ -95,8 +95,8 @@ test('a block with no Scenario line is ignored rather than crashing', () => {
 });
 
 // Regression: the first parser treated a ```gherkin fence as ONE scenario and
-// ignored scenarios that were not fenced at all. Measured against real consumer documents
-// that returned 55 of 133 - it reported a small tidy queue and hid the real one,
+// ignored scenarios that were not fenced at all, so it could return well under half of
+// a project's scenarios - it reported a small tidy queue and hid the real one,
 // which is the worst failure available to a tool whose whole job is surfacing a
 // backlog.
 
@@ -131,24 +131,24 @@ test('a single fence holding several scenarios yields all of them', () => {
 });
 
 test('scenarios with no fence at all are parsed', () => {
-  // One real consumer document is exactly this shape: 19 scenarios, zero fences.
+  // A document written before fences were the rule is exactly this shape: no fences at all.
   const doc = [
     '## Feature: Unfenced',
     '',
-    'Scenario: Member creator is pinned to one owner',
-    '  Given a signed-in user has creator access',
-    '  Then the owner field is fixed',
+    'Scenario: A new order is pinned to one till',
+    '  Given a signed-in cashier opens a new order',
+    '  Then the till field is fixed',
     '',
-    'Scenario: Creator creates a product',
-    '  Given a creator opens the form',
-    '  Then the product is created',
+    'Scenario: Cashier rings up an item',
+    '  Given a cashier scans a barcode',
+    '  Then the item is added to the order',
   ].join('\n');
 
   const s = parseDocument(doc, 'doc.md');
   assert.equal(s.length, 2);
   assert.equal(s[0].feature, 'Unfenced');
   assert.equal(s[0].id, null); // untracked, and that is the point
-  assert.equal(s[1].title, 'Creator creates a product');
+  assert.equal(s[1].title, 'Cashier rings up an item');
   assert.equal(s[1].steps.length, 2);
 });
 

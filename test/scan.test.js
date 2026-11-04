@@ -16,8 +16,8 @@ import { buildModel, renderTypeScript } from '../src/emit.js';
 
 test('a Windows-shaped path is normalised to forward slashes', () => {
   assert.equal(
-    toPosixPath('documentation\\ui-qa\\onboarding\\onboarding-acceptance.md'),
-    'documentation/ui-qa/onboarding/onboarding-acceptance.md'
+    toPosixPath('docs\\acceptance\\onboarding\\onboarding-acceptance.md'),
+    'docs/acceptance/onboarding/onboarding-acceptance.md'
   );
 });
 
@@ -30,7 +30,7 @@ test('a POSIX path is returned unchanged', () => {
 
 test('a mixed-separator path is normalised, not half-normalised', () => {
   // Reachable on Windows, which accepts both, so a path can arrive already mixed.
-  assert.equal(toPosixPath('documentation\\ui-qa/onboarding\\x.md'), 'documentation/ui-qa/onboarding/x.md');
+  assert.equal(toPosixPath('docs\\acceptance/onboarding\\x.md'), 'docs/acceptance/onboarding/x.md');
 });
 
 test('the emitted artefact is identical whichever platform produced the paths', () => {
@@ -48,15 +48,15 @@ test('the emitted artefact is identical whichever platform produced the paths', 
   });
 
   const fromWindows = renderTypeScript(
-    buildModel([scenario(toPosixPath('documentation\\ui-qa\\onboarding\\x.md'))])
+    buildModel([scenario(toPosixPath('docs\\acceptance\\onboarding\\x.md'))])
   );
   const fromPosix = renderTypeScript(
-    buildModel([scenario(toPosixPath('documentation/ui-qa/onboarding/x.md'))])
+    buildModel([scenario(toPosixPath('docs/acceptance/onboarding/x.md'))])
   );
 
   // The whole point: same repository, same documents, same bytes. Without the
   // normalisation these differ and `--check` fails for whoever did not generate it.
   assert.equal(fromWindows, fromPosix);
-  assert.match(fromWindows, /source: 'documentation\/ui-qa\/onboarding\/x\.md'/);
+  assert.match(fromWindows, /source: 'docs\/acceptance\/onboarding\/x\.md'/);
   assert.ok(!fromWindows.includes('\\\\'), 'no escaped backslash should survive into the artefact');
 });

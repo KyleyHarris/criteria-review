@@ -1,18 +1,18 @@
 // The glossary: words that name domain concepts, resolved when criteria are read.
 //
 // WHY CRITERIA NEED THIS AT ALL. A scenario is user-facing prose naming domain concepts, so
-// it is exactly the class of text a glossary exists for - and it was the one surface nobody
-// applied the rule to. When a product renames the thing a login belongs to from "Member" to
-// "Company", every criterion that spelled the word is silently describing something that no
+// it is exactly the class of text a glossary exists for - and it is usually the last surface
+// anyone applies the rule to. When a product renames the person at the till from "Clerk" to
+// "Cashier", every criterion that spelled the word is silently describing something that no
 // longer exists, and no test can notice because the words are prose.
 //
-// TWO RULES, TAKEN FROM THE APPLICATION-SIDE FEATURE THIS MIRRORS. They are copied
-// deliberately: two dialects of "term" inside one organisation would be drift on a new axis.
+// TWO RULES. They match what an application-side term registry would enforce, so a project can
+// emit this manifest from its own registry without a second dialect of "term".
 //
-//   1. KEYS NAME THE INTERNAL DOMAIN, VALUES NAME WHAT THE USER SEES. The key is `loginGroup`
-//      because the entity is a login group; the value was "Member" and is now "Company". Keys
+//   1. KEYS NAME THE INTERNAL DOMAIN, VALUES NAME WHAT THE USER SEES. The key is `operator`
+//      because the entity is an operator; the value was "Clerk" and is now "Cashier". Keys
 //      and values have different lifetimes, so keying on the current word would turn the next
-//      rename into a key rename and leave `member` resolving to "Company".
+//      rename into a key rename and leave `clerk` resolving to "Cashier".
 //   2. ONLY `value` AND `plural` ARE AUTHORED. Every other form is derived, because an authored
 //      lowercase is where drift reappears inside a single term: change `value`, forget the
 //      sibling, and the exercise has failed at the smallest possible scale.
@@ -89,11 +89,11 @@ export function renderTerms(text, terms = {}) {
  * Text that SPELLS a word the glossary owns, instead of naming the concept.
  *
  * This is the drift the glossary exists to prevent, caught at the moment it is introduced
- * rather than at the next rename. A criterion reading "a Company must have an owner" looks
- * perfectly correct today and is silently wrong the day Company becomes something else.
+ * rather than at the next rename. A criterion reading "a Store must have an owner" looks
+ * perfectly correct today and is silently wrong the day Store becomes something else.
  *
  * Matched case-insensitively on whole words against `value` and `plural`, because a
- * criterion writing "company" mid-sentence means the term just as much as one writing it
+ * criterion writing "store" mid-sentence means the term just as much as one writing it
  * capitalised. Reported rather than corrected: whether a word names the domain concept or is
  * ordinary prose is a judgement, and a glossary that swallows ordinary English makes
  * documents unreadable.

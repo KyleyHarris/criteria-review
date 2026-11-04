@@ -466,8 +466,8 @@ Scenario: Third in the same fence
 // used to be inserted above the FENCE, which is above the first. The write then reparsed as
 // a note on the first scenario, addNote's own verification correctly refused it, and the
 // file was restored - so `ask` failed for every scenario in a packed document except the
-// first one, and there was no way to raise a question against it at all. Observed on 4C's
-// company-status-and-membership document, which held nine scenarios in one fence.
+// first one, and there was no way to raise a question against it at all. A document holding
+// nine scenarios in one fence is an ordinary shape.
 test('a note on the second scenario of a packed fence lands on that scenario', async () => {
   const file = await fixture(PACKED_DOC);
   await addNote(file, 'PACK-002', 'this one, not the first', {

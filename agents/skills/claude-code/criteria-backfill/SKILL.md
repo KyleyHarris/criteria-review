@@ -169,13 +169,13 @@ Before writing a scenario, look at the glossary:
 npx criteria-review terms          # what exists, and how each one is used
 ```
 
-Every domain noun you are about to write goes through it. A criterion reading "a Company must
-have an owner" is correct today and silently wrong the day Company becomes something else, and
+Every domain noun you are about to write goes through it. A criterion reading "a Store must
+have an owner" is correct today and silently wrong the day Store becomes something else, and
 nothing can notice because the words are prose:
 
 ```gherkin
-Scenario: A {loginGroup} must have at least one {operationType}
-  When staff save it with no {operationType.lower} chosen
+Scenario: A {premises} must accept at least one {tender}
+  When staff save it with no {tender.lower} chosen
 ```
 
 Variants derive - `{term.lower}`, `{term.plural}`, `{term.lowerPlural}`, `{term.possessive}`.
@@ -184,12 +184,12 @@ Variants derive - `{term.lower}`, `{term.plural}`, `{term.lowerPlural}`, `{term.
 entry and do not quietly spell the word instead. Present it as a question with a recommendation:
 
 ```
-"Operation Type" appears in 4 of these scenarios and is not in the glossary.
+"Payment Method" appears in 4 of these scenarios and is not in the glossary.
 It looks like a domain concept the product could rename.
-  key:         operationType   (names the internal domain, not the current word)
-  value:       Operation Type
-  plural:      Operation Types
-  description: What a company does
+  key:         tender   (names the internal domain, not the current word)
+  value:       Payment Method
+  plural:      Payment Methods
+  description: A way a customer can pay
 Add it? It has to be added at the real source and re-generated - see criteria-glossary.
 ```
 

@@ -20,7 +20,7 @@ someone. Without a product owner's documents, the architect does that alone, fro
 and the intent that results is the architect's reading of the customer, not the customer's own
 statement. Intake can then only judge what the architect wrote down.
 
-Two failures follow, and both were observed:
+Two failures follow:
 
 - **The architect cannot design without the business.** How the work is done today, without
   software, decides what software should do. A request to "calculate X" says nothing about who

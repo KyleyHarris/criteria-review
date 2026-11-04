@@ -9,7 +9,7 @@
 // side. See docs/decisions.md D-003.
 //
 // TWO LAYERS, DELIBERATELY. `buildModel` produces language-neutral JSON; the renderers
-// sit over it. The first consumer is TypeScript, but a standard whose only output binds
+// sit over it. The first renderer is TypeScript, but a standard whose only output binds
 // to one language is not a standard, and retrofitting the neutral layer later would mean
 // changing every consumer. See D-004.
 //

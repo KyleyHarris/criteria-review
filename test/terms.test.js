@@ -11,45 +11,45 @@ import { parseDocument } from '../src/parse.js';
 // prevent. The last test here is the one that matters.
 
 const TERMS = {
-  loginGroup: {
-    value: 'Company',
-    plural: 'Companies',
-    description: 'The organisation a login belongs to',
+  outlet: {
+    value: 'Store',
+    plural: 'Stores',
+    description: 'The shop a till belongs to',
   },
-  vendor: { value: 'iMIS', plural: 'iMIS systems', description: 'The membership system', casing: 'preserve' },
-  glass: { value: 'Glass', plural: 'Glasses', description: 'A pane', possessive: "Glass'" },
+  vendor: { value: 'iPOS', plural: 'iPOS terminals', description: 'The terminal software supplier', casing: 'preserve' },
+  business: { value: 'Business', plural: 'Businesses', description: 'The legal entity that trades', possessive: "Business'" },
 };
 
 test('only value and plural are authored; the rest derive', () => {
-  assert.equal(variantOf(TERMS.loginGroup, 'value'), 'Company');
-  assert.equal(variantOf(TERMS.loginGroup, 'plural'), 'Companies');
+  assert.equal(variantOf(TERMS.outlet, 'value'), 'Store');
+  assert.equal(variantOf(TERMS.outlet, 'plural'), 'Stores');
 
   // Catches: an authored lowercase, which is where drift reappears inside a single term -
   // change value, forget the sibling, and the exercise fails at the smallest possible scale.
-  assert.equal(variantOf(TERMS.loginGroup, 'lower'), 'company');
-  assert.equal(variantOf(TERMS.loginGroup, 'lowerPlural'), 'companies');
-  assert.equal(variantOf(TERMS.loginGroup, 'possessive'), "Company's");
+  assert.equal(variantOf(TERMS.outlet, 'lower'), 'store');
+  assert.equal(variantOf(TERMS.outlet, 'lowerPlural'), 'stores');
+  assert.equal(variantOf(TERMS.outlet, 'possessive'), "Store's");
 });
 
 test('casing: preserve stops a proper noun being lower-cased', () => {
-  // Catches: rendering "imis". Capitalisation is part of some words' identity, and no
+  // Catches: rendering "ipos". Capitalisation is part of some words' identity, and no
   // compiler catches a lower-cased proper noun.
-  assert.equal(variantOf(TERMS.vendor, 'lower'), 'iMIS');
-  assert.equal(variantOf(TERMS.vendor, 'lowerPlural'), 'iMIS systems');
+  assert.equal(variantOf(TERMS.vendor, 'lower'), 'iPOS');
+  assert.equal(variantOf(TERMS.vendor, 'lowerPlural'), 'iPOS terminals');
 });
 
 test('an authored possessive overrides the derivation', () => {
-  // Catches: forcing "Glass's" where the house style is "Glass'". English disagrees with
+  // Catches: forcing "Business's" where the house style is "Business'". English disagrees with
   // itself after a trailing s, so this is the one authored form that may exist.
-  assert.equal(variantOf(TERMS.glass, 'possessive'), "Glass'");
+  assert.equal(variantOf(TERMS.business, 'possessive'), "Business'");
 });
 
 test('markers render, including variants', () => {
   const { rendered, missing } = renderTerms(
-    'A {loginGroup} owns its {loginGroup.lower} sites and {loginGroup.plural} elsewhere',
+    'A {outlet} owns its {outlet.lower} tills and {outlet.plural} share stock',
     TERMS
   );
-  assert.equal(rendered, 'A Company owns its company sites and Companies elsewhere');
+  assert.equal(rendered, 'A Store owns its store tills and Stores share stock');
   assert.deepEqual(missing, []);
 });
 
@@ -65,15 +65,15 @@ test('an unknown term renders loudly and is reported', () => {
 test('a Scenario Outline placeholder is left alone', () => {
   // Catches: choosing a marker syntax that collides with Gherkin's own. Outlines use <>,
   // which is why terms use braces.
-  const { rendered } = renderTerms('Given a <role> viewing a {loginGroup}', TERMS);
-  assert.equal(rendered, 'Given a <role> viewing a Company');
+  const { rendered } = renderTerms('Given a <role> viewing a {outlet}', TERMS);
+  assert.equal(rendered, 'Given a <role> viewing a Store');
 });
 
 test('a manifest missing plural or description is refused', () => {
   const problems = validateTerms({ thing: { value: 'Thing' } });
 
   // Catches: a term defined in only the form one screen happens to use. That is the next
-  // hard-coded plural, and the application-side registry makes it a compile error.
+  // hard-coded plural, and a typed term registry would make it a compile error.
   assert.equal(problems.length, 2);
   assert.ok(problems.some((p) => /missing "plural"/.test(p)));
   assert.ok(problems.some((p) => /missing "description"/.test(p)));
@@ -88,10 +88,10 @@ test('an authored derived form is refused by name', () => {
 
 const DOC = `
 \`\`\`gherkin
-@CO-TYPES-001 @status:derived @persona:Support staff
-Scenario: A {loginGroup} must have an owner
-  Given a new {loginGroup}
-  Then the {loginGroup.lower} is refused without one
+@SHOP-OWNER-001 @status:derived @persona:Support staff
+Scenario: A {outlet} must have an owner
+  Given a new {outlet}
+  Then the {outlet.lower} is refused without one
 \`\`\`
 `;
 
@@ -103,25 +103,25 @@ test('THE emitted binding key keeps the marker; only display renders', () => {
   // so it must survive a rename untouched; `stepsDisplay` is what a caption and a reviewer
   // read. Emitting the rendered words as the key would make every rename a mechanical
   // sweep across every citing journey.
-  assert.deepEqual(s.steps, ['Given a new {loginGroup}', 'Then the {loginGroup.lower} is refused without one']);
-  assert.deepEqual(s.stepsDisplay, ['Given a new Company', 'Then the company is refused without one']);
-  assert.equal(s.title, 'A {loginGroup} must have an owner');
-  assert.equal(s.titleDisplay, 'A Company must have an owner');
+  assert.deepEqual(s.steps, ['Given a new {outlet}', 'Then the {outlet.lower} is refused without one']);
+  assert.deepEqual(s.stepsDisplay, ['Given a new Store', 'Then the store is refused without one']);
+  assert.equal(s.title, 'A {outlet} must have an owner');
+  assert.equal(s.titleDisplay, 'A Store must have an owner');
 });
 
 test('renaming a term changes the display and not one binding key', () => {
   const before = buildModel(parseDocument(DOC, 'a.md'), { terms: TERMS });
   const after = buildModel(parseDocument(DOC, 'a.md'), {
-    terms: { ...TERMS, loginGroup: { ...TERMS.loginGroup, value: 'Firm', plural: 'Firms' } },
+    terms: { ...TERMS, outlet: { ...TERMS.outlet, value: 'Branch', plural: 'Branches' } },
   });
 
   assert.deepEqual(after.scenarios[0].steps, before.scenarios[0].steps);
   assert.notDeepEqual(after.scenarios[0].stepsDisplay, before.scenarios[0].stepsDisplay);
-  assert.equal(after.scenarios[0].titleDisplay, 'A Firm must have an owner');
+  assert.equal(after.scenarios[0].titleDisplay, 'A Branch must have an owner');
 });
 
 test('generation refuses a marker the glossary does not define', () => {
-  const bad = DOC.replace('{loginGroup} must have an owner', '{organization} must have an owner');
+  const bad = DOC.replace('{outlet} must have an owner', '{organization} must have an owner');
 
   // Catches: shipping a sentinel into a consumer's typed module. Strict in the gate,
   // tolerant in the viewer - the page shows the marker so a reviewer can see it.
@@ -130,12 +130,12 @@ test('generation refuses a marker the glossary does not define', () => {
 
 test('the rendered module carries both forms', () => {
   const ts = renderTypeScript(buildModel(parseDocument(DOC, 'a.md'), { terms: TERMS }));
-  assert.match(ts, /titleDisplay: 'A Company must have an owner'/);
+  assert.match(ts, /titleDisplay: 'A Store must have an owner'/);
   assert.match(ts, /stepsDisplay: \[/);
-  assert.match(ts, /'Given a new \{loginGroup\}'/);
+  assert.match(ts, /'Given a new \{outlet\}'/);
 });
 
-// The worked example in examples/glossary is a real project the tool reads, so these run the
+// The worked example in examples/glossary is a complete project the tool reads, so these run the
 // actual pipeline over it rather than over a fixture invented for the test. If the example
 // stops being a valid project, or the rules change under it, these go red - which is what
 // stops a documented example rotting into something that no longer works.
@@ -196,14 +196,14 @@ test('the worked example names its concepts rather than spelling them', async ()
 });
 
 test('a spelled term is found however it is cased, and never inside a marker', () => {
-  const terms = { loginGroup: { value: 'Company', plural: 'Companies', description: 'x' } };
+  const terms = { outlet: { value: 'Store', plural: 'Stores', description: 'x' } };
 
   // Catches the drift the glossary exists to prevent, on the day it is written.
-  assert.deepEqual(findSpelledTerms('A Company must have an owner', terms), [
-    { key: 'loginGroup', spelled: 'Company' },
+  assert.deepEqual(findSpelledTerms('A Store must have an owner', terms), [
+    { key: 'outlet', spelled: 'Store' },
   ]);
-  assert.equal(findSpelledTerms('the company is refused', terms).length, 1);
-  assert.deepEqual(findSpelledTerms('A {loginGroup} must have an owner', terms), []);
+  assert.equal(findSpelledTerms('the store is refused', terms).length, 1);
+  assert.deepEqual(findSpelledTerms('A {outlet} must have an owner', terms), []);
   // Whole words only: a term must not match inside a longer word.
-  assert.deepEqual(findSpelledTerms('Accompany the request', terms), []);
+  assert.deepEqual(findSpelledTerms('Restore the request', terms), []);
 });

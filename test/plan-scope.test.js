@@ -13,8 +13,8 @@ const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'criteria
 // What this guards: a plan command run from a directory that is not a registered project
 // used to fall back to the registered projects and write into the FIRST of them. The plan
 // belongs to one repository, so a command that cannot say which one must refuse rather than
-// guess, and above all must not change somebody else's files. Found 2026-09-26 when a
-// scratch-directory test wrote to and then cleared a plan in an unrelated registered project.
+// guess, and above all must not change somebody else's files: run from a scratch directory,
+// it would write to and then clear a plan in an unrelated registered project.
 //
 // Runs the real binary in a throwaway HOME, so it cannot touch the developer's registered
 // projects.

@@ -4,12 +4,16 @@ How a passing journey becomes a video someone who has never seen the software ca
 those videos become the delivery package.
 
 **Written to be executed.** The steps below are exact because this is a procedure an agent runs
-unattended, and every failure mode listed here has actually happened and is quiet: the run stays
+unattended, and every failure mode listed here is a real risk and is quiet: the run stays
 green and produces a file that is unreadable, blank, or unlabelled. A checklist that only describes
 the happy path would pass every one of them.
 
-Section 8 carries working sample plumbing. Its **contract** is normative; the code is a reference
-implementation in one stack, and porting means meeting the contract rather than matching the code.
+**Everything here is a recommendation, and a strong one.** Nothing in this file is enforced by the
+tool, and a recording built another way is not wrong. The rules are what a clip needs in order to
+explain itself to someone who was not there, so follow them
+unless you have a reason not to, and write the reason down. Section 8 carries sample plumbing: one
+way to meet the rules in one stack. Copy it, change it or ignore it; porting means meeting the
+rules rather than matching the code.
 
 Why video at all is in [`01-qa-approach.md`](01-qa-approach.md) and
 [`08-definition-of-done.md`](08-definition-of-done.md); this file is the mechanism.
@@ -82,6 +86,14 @@ on the result.
 All three read one environment seam and do nothing when it is unset. Failures inside them are
 swallowed by design: a caption must never be able to turn a passing journey red.
 
+**Every page a recording films explains itself.** A caption painted once per step is lost the
+moment the page navigates, and a page a journey opens beside its main one has no caption at all
+unless something paints one there. Both produce footage of a screen with nothing saying what it
+is. So the caption survives navigation (repainted whenever a page finishes loading), and every
+page or context other than the main one carries a label naming what or whom it shows, such as
+"Second window: the manager approving the refund". A viewer should be able to pause any frame of
+any clip and read what is happening and why.
+
 ## 3. The environment seam
 
 ```bash
@@ -131,6 +143,15 @@ the directory name**. The runner names video files after an internal page identi
 in one test produce two indistinguishable files and the only way to tell whose screen is whose is to
 watch both. A handoff video nobody can label is not evidence.
 
+**Label what each extra page shows, on screen.** The directory name tells the person assembling the
+package whose screen it is; the viewer never sees a directory. A label on the page itself (section
+2) is what tells them.
+
+**Do the setup where the viewer is looking.** A journey that prepares its starting state on a second
+page while the main page sits idle films a long stretch of an empty screen on the main clip.
+Either open the main page on something meaningful before the setup starts, or do the setup on the
+main page under setup captions, so the main clip shows the arrangement rather than nothing.
+
 ## 6. The procedure
 
 1. **Start from a clean database.** The chain journeys create the data they demonstrate; against a
@@ -171,6 +192,16 @@ The acceptance documents and the clips together, in one folder, assembled by **o
 - **Label the folder with the date of the recording, not today's date.** The package is evidence from
   a moment.
 
+- **Only journeys that prove a named scenario go into a customer package.** A recorded test that
+  proves no scenario cannot be explained by one, so it is listed in the README as "not filmed: no
+  scenario" rather than shipped as an unexplained clip.
+- **Several clips for one scenario are ordered main page first**, then each extra page in the order
+  it opened, each named for the role it shows.
+- **Check every clip before it ships.** A clip with no caption anywhere in it, or with a long
+  stretch of a blank or white screen, explains nothing, and both leave the run green. The check is
+  cheap to script against the recordings themselves (a sample closes section 8), and a clip that
+  fails it is fixed in its journey rather than shipped with a note.
+
 **If any part of the package needs doing by hand, fix the script rather than doing it by hand.** A
 package assembled manually gets skipped exactly when the delivery is under pressure, which is the
 failure the one-command rule is written against.
@@ -181,7 +212,7 @@ failure the one-command rule is written against.
 
 ### What is normative, and what is an example
 
-**The contract below is the standard. The code after it is one reference implementation.**
+**The rules below are the standard's strong recommendation. The code after it is one sample.**
 
 The sample is TypeScript against a browser-automation runner that exposes slow motion through launch
 options, video through context options, and a `step` primitive. That is one stack, and its shape
@@ -190,7 +221,7 @@ for painting an overlay. A different runner, language, or test framework meets t
 differently, and a port that reproduces the code without meeting the contract has copied the
 accidents rather than the design.
 
-An implementation on any stack must:
+An implementation on any stack should:
 
 1. **Read one seam that is unset by default**, so nothing here can affect the authoritative run.
 2. **Force the recording resolution and a 1:1 capture size**, and apply that only while recording.
@@ -207,14 +238,19 @@ An implementation on any stack must:
 8. **Fail loudly when a journey has no persona**, rather than filming an unidentifiable clip.
 9. **Take the step order from the document**, not from the order the bodies were written in.
 10. **Never let a demonstration affordance fail a journey.** Swallow its errors.
+11. **Keep the caption on every page it films, across navigation**, by repainting it whenever a
+    page finishes loading rather than once per step.
+12. **Label every page or context other than the main one** with what or whom it shows, on screen.
+13. **Check every clip before it ships**, and refuse one with no caption or a long blank stretch.
 
 Everything that is not in that list is free: colours, fonts, element ids, module names, where the
 files live, and whether the pieces are four modules or one.
 
 ### The reference implementation
 
-Four modules and one config change, in dependency order, generalised from a working suite. Copy them
-if the stack matches, and keep the comments that state a constraint.
+Four modules and one config change, in dependency order. This is a recommended approach, not a
+requirement: copy it if the stack matches, adapt it if it nearly does, and keep the comments that
+state a constraint.
 
 ### `support/watch-mode.ts` - the seam everything else reads
 
@@ -330,21 +366,57 @@ export async function showTitleCard(page: Page, brief: JourneyBrief): Promise<vo
   }
 }
 
+type Caption = { text: string; muted: boolean };
+
+/**
+ * The caption each page is showing now, so it can be painted again after a navigation.
+ *
+ * A painted caption is part of the document, so following a link or submitting a form destroys
+ * it, and the page then films with nothing saying what is happening. Remembering the caption per
+ * page and repainting it on every load keeps every frame explained.
+ */
+const current = new WeakMap<Page, Caption>();
+const repainting = new WeakSet<Page>();
+
+function keepAcrossNavigation(page: Page): void {
+  if (repainting.has(page)) return;
+  repainting.add(page);
+  page.on('load', () => {
+    const caption = current.get(page);
+    if (caption) page.evaluate(paintCaption, caption).catch(() => { /* never fail a journey */ });
+  });
+}
+
 export async function showStepCaption(
   page: Page,
   text: string,
   options: { muted?: boolean } = {}
 ): Promise<void> {
   if (!isWatchModeActive()) return;
+  const caption = { text, muted: options.muted ?? false };
+  current.set(page, caption);
+  keepAcrossNavigation(page);
   try {
-    await page.evaluate(paintCaption, { text, muted: options.muted ?? false });
+    await page.evaluate(paintCaption, caption);
   } catch {
     /* never fail a journey */
   }
 }
 
+/**
+ * Label a page or context other than the journey's main one with what or whom it shows.
+ *
+ * Without it, the clip filmed from that page is a screen nobody can place. The label is a muted
+ * caption, so it reads as context rather than as a criterion, and it survives navigation like any
+ * other caption.
+ */
+export async function labelRecordedPage(page: Page, label: string): Promise<void> {
+  await showStepCaption(page, label, { muted: true });
+}
+
 export async function clearStepCaption(page: Page): Promise<void> {
   if (!isWatchModeActive()) return;
+  current.delete(page);
   try {
     await page.evaluate(removeCaption);
   } catch {
@@ -609,11 +681,39 @@ The publish step is a script, not a manual assembly, and its contract is section
 needs is already in the emitted scenario module: the ids, the titles, and the order the acceptance
 document introduces them.
 
+### Checking a clip before it ships
+
+A sample, using `ffmpeg`, tuned to the sample caption above (a dark strip across the bottom of the
+frame). A different caption style needs a different region and threshold; the point is to measure
+the recording itself rather than trust that the run was green.
+
+```bash
+#!/bin/bash
+# Usage: check-clip.sh <clip.webm>. Exits 1 when the clip should not ship.
+clip="$1"
+
+# 1. A long blank or white stretch. Inverting the frame turns white into black, so the
+#    black detector finds both; 6 seconds is a stretch a viewer notices.
+blank=$(ffmpeg -hide_banner -nostats -i "$clip" \
+  -vf "crop=iw:ih*0.8:0:0,scale=320:-1,negate,blackdetect=d=6:pic_th=0.98:pix_th=0.05" \
+  -an -f null - 2>&1 | grep -c blackdetect)
+
+# 2. No caption anywhere. Sample one frame a second from the strip the caption paints, and
+#    count the seconds where it is dark; a clip with none was never captioned.
+captioned=$(ffmpeg -hide_banner -nostats -i "$clip" \
+  -vf "fps=1,crop=iw*0.3:ih*0.025:0:ih*0.96,signalstats,metadata=print:key=lavfi.signalstats.YAVG" \
+  -an -f null - 2>&1 | awk -F= '/YAVG/ { if ($2 < 140) n++ } END { print n + 0 }')
+
+[ "$blank" -eq 0 ] || { echo "$clip: blank stretch"; exit 1; }
+[ "$captioned" -gt 0 ] || { echo "$clip: no caption"; exit 1; }
+echo "$clip: ok"
+```
+
 ---
 
 ## 9. How to tell it went wrong
 
-Each of these has happened. All of them leave the run green.
+Each of these leaves the run green.
 
 | Symptom | Cause | Fix |
 |---|---|---|
@@ -628,12 +728,20 @@ Each of these has happened. All of them leave the run green.
 | Captions disagree with the acceptance document | Step names were retyped rather than generated | See [`04-playwright-journeys.md`](04-playwright-journeys.md) |
 | The set runs under a minute | Filmed at test speed | Restore the pacing; a fast recording is not a cheap one, it is an unusable one |
 | The everyday suite got slower | A demonstration affordance became unconditional | Put it back behind the seam; the gating run pays nothing for demonstration |
+| A clip has no caption at all | It was filmed from a page the caption helpers never painted, usually a second page or context | Label that page on screen, and caption it like the main one |
+| The caption disappears after a click | It was painted once and the page navigated | Repaint the caption whenever a page finishes loading |
+| A long stretch of a blank or white screen | The journey did its setup on another page while this one sat idle | Open this page on something meaningful first, or do the setup here under setup captions |
+| A clip proves no scenario | A plain test was recorded with the journeys | Leave it out of the package and list it as "not filmed: no scenario" |
 
 ## 10. Before calling a recording session done
 
 - [ ] Every clip opens, is 1080p, and is legible at full screen.
 - [ ] Every clip starts with a title card naming its scenario id.
 - [ ] Every caption matches the acceptance document's own wording.
+- [ ] Every page in every clip carries a caption or a label, including after navigation.
+- [ ] No clip has a long blank or white stretch, checked against the files rather than by memory.
+- [ ] Where a scenario has several clips, the main page comes first, and each is named for its role.
+- [ ] Every recorded test that proves no scenario is listed as "not filmed: no scenario".
 - [ ] Every filename leads with a scenario id that exists.
 - [ ] Every scenario in the document either has a clip or is named in the README as having none.
 - [ ] No file in the package matched nothing.

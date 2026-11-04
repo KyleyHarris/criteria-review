@@ -248,7 +248,7 @@ hands the item to exactly one side, and the tag line always says which.
 Add a bare `@looknow` to a scenario's tag line:
 
 ```gherkin
-@ONB-MEMBER-001 @status:derived @persona:Administrator @looknow
+@ONB-STAFF-001 @status:derived @persona:Administrator @looknow
 ```
 
 That is the whole mechanism. An agent already editing these documents needs no API. Flagged
