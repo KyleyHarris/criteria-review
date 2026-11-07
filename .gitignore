@@ -4,3 +4,7 @@ node_modules/
 
 # Local publish credential. Never committed - this is a public repository.
 npm.auth
+
+# Any directory named local/ at any depth: per-machine notes, memory and plans that a session
+# keeps beside the code (.claude/local/), never part of the tool.
+**/local/
